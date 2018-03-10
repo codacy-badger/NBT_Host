@@ -1,0 +1,17 @@
+Stable :
+
+* Nasa Rss Feed : https://www.nasa.gov/rss/dyn/breaking_news.rss
+* Kabes on Security : https://krebsonsecurity.com/feed/
+
+------------------------
+
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+result = Article.query.whoosh_search('Modi').all()
+
+
+crone jobs linux
+
+--------------------
+
+      app.run(host='0.0.0.0', port=80)

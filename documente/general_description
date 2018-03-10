@@ -1,0 +1,75 @@
+
+*------------------------------------------------------------------------*
+
+		Pnews --  Personalized News Application
+
+*------------------------------------------------------------------------*
+
+Abstract Description : To provide personalized news via tagging based  to all kind of devices via REST-Services 
+
+*------------------------------------------------------------------------*
+
+Detailed Description : 
+	
+	People have to go to each web site in order to get news but by this kind of web service they will get 
+news to all kind of smart devices like android, ios, windows (laptop or phone)
+because of web services used at back-end side.
+
+
+
+
+*------------------------------------------------------------------------*
+
+* Techonologies Used :
+
+*------------------------------------------------------------------------*
+
+** Back-end Technology
+
+Language : python - v-3.2
+Framework : Flask - v-
+Database : PostgreSql - v
+ORM Module : SQLAlchemy -v
+Authentication API : google API
+Full text search : (SQLAlchemy Searchable Module + Postgresql)
+
+
+*------------------------------------------------------------------------*
+
+** Front-end Technology
+ 
+Smart-Phone  	:	Android (minimum lolipop)
+Laptop 			:	All Browser (Chrome, FireFox, Edge)
+
+
+*------------------------------------------------------------------------*
+
+* Deployment Steps :
+
+** Pre-requesite :
+	-Linux OS to Activating Web-service
+	-Android Smart Device to access Web-Services through app provided in play store called "Pnews"
+	-Brouser to access Application via web-site which is consuming web-services at back-end
+
+
+1. Copy the project folder in any home location of linux os.
+2. Open Terminal at that location
+3. Fire Command : "python3 app.py"
+4. Automatically local Server will be start listening at 127.0.0.1:<port number> for web-site and web-api
+5. Now, Web Service is available at localhost:<port-no> via http request
+6. from now you can run Application from browser by typing url as "localhost:<port-no>/index"
+7. Also from android application connected to local wifi network to which server (linux device on which web-services is runnting)   s  also connected, you can consume above activated web-services.
+
+
+
+
+
+*------------------------------------------------------------------------*
+
+Created By : Rajat N Movaliya (Branch : CE, SEM : 6, DDU,Nadiad)
+
+Guided By : Jigar M Pandaya( Assistant Professor at DDU, Nadiad)
+
+
+
+
