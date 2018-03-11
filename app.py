@@ -185,7 +185,7 @@ def tag_name_get(name):
         res['title'] = article.title
         res['body'] = article.body
         res['link'] = article.link
-        #res['added'] = article.date_added
+        res['added'] = article.date_added
         #res[] = article.
 
         response.append(res)
