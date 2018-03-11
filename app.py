@@ -15,11 +15,7 @@ db_uri = 'postgresql://user1:0233@localhost/feedreader'
 app.config['SQLALCHEMY_DATABASE_URI'] = db_uri
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-
 db = SQLAlchemy(app)
-
-
-
 
 tagger = db.Table('tagger',
             db.Column('id', db.Integer, primary_key=True),
@@ -27,11 +23,24 @@ tagger = db.Table('tagger',
             db.Column('article_id', db.Integer, db.ForeignKey('article.id'))
 )
 
+connector = db.Table('connector',
+            db.Column('id', db.Integer, primary_key=True),
+            db.Column('tag_id', db.Integer, db.ForeignKey('tag.id')),
+            db.Column('user_id', db.Integer, db.ForeignKey('user.id'))
+)
 
 class Tag(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     tag_name = db.Column(db.Text, nullable=False)
     articles = db.relationship('Article', secondary= tagger, backref= db.backref('tags',lazy=True))
+    #users = db.relationship('User', secondary= connector, backref= db.backref('tags',lazy=True)
+
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name =  db.Column(db.Text, nullable=False)
+    username = db.Column(db.Text, nullable=False)
+    password = db.Column(db.Text, nullable=False)
+    tags = db.relationship('Tag', secondary= connector, backref= db.backref('users',lazy=True))
 
 
 class Article(db.Model):
@@ -48,7 +57,7 @@ class Article(db.Model):
     source_id = db.Column(db.Integer, db.ForeignKey('source.id'), nullable=False)
     source = db.relationship('Source', backref=db.backref('articles', lazy=True))
     date_added = db.Column(db.DateTime, default=datetime.datetime.utcnow)
-    
+
     #search_vector = db.Column(TSVectorType('title', 'body'))  # changing sa(sqlalchemy) to db
 
 
@@ -138,7 +147,7 @@ def sources_post():
     Article.insert_from_feed(source.id, feed_articles)
     return redirect('/sources')
 
-############################################################################
+####################################################################
 
 
 @app.route('/news/tagid/<int:id>', methods=['GET'])
@@ -170,9 +179,9 @@ def tag_id_get(id):
 @app.route('/news/tagname/<name>', methods=['GET'])
 def tag_name_get(name):
 
-    
+
     tag =  Tag.query.filter_by(tag_name = name).first()
-    
+
     if tag == None:
          return jsonify({'msg':"Tag is not found"})
 
@@ -194,18 +203,21 @@ def tag_name_get(name):
     return jsonify({'response' : response })
 
 
-@app.route('/tag/add/<name>', methods=['GET'])
-def tag_add_get(name):
+@app.route('/tag/add/<user_name>/<tag_name>', methods=['GET'])
+def tag_add_get(user_name, tag_name):
 
-    tag = Tag(tag_name = name)
+    user = User.query.filter_by(username=user_name).first()
+    tag = Tag(tag_name = tag_name)
+    tag.users.append(user)
     db.session.add(tag)
     db.session.commit()
 
-    index_one(tag)
+    #index_one(tag)
 
     res = {}
     res["tag_name"] = tag.tag_name
     res["id"]= tag.id
+    res['username']=user.username
     return jsonify( {'added_tag': res } )
 
 
@@ -218,7 +230,7 @@ def tag_delete_get(id):
         return jsonify({'msg':"Deleted all tags"})
 
     tag = Tag.query.filter(Tag.id == id).first()
-    
+
     if tag == None:
         return jsonify( {'msg':'tag not found for given id'} )
 
@@ -226,10 +238,10 @@ def tag_delete_get(id):
     res = {}
     res["tag_name"] = tag.tag_name
     res["id"]= tag.id
-    
+
     db.session.delete(tag)
     db.session.commit()
-    
+
     return jsonify( {'deleted_tag':res } )
 
 
@@ -248,6 +260,58 @@ def tag_trending_get(top = 10):
 
     return jsonify( {'trending_tag': output } )
 
+
+
+@app.route('/tag/username/<username>', methods=['GET'])
+def tag_username_get(username='rnmpatel'):
+
+    user = User.query.filter_by(username = username).first()
+    tags = user.tags
+    output = []
+    for tag in tags:
+        t = {}
+        t['id'] = tag.id
+        t['tag_name'] = tag.tag_name
+        output.append(t)
+
+    return jsonify( {'user_tag': output } )
+
+#####################################################################################
+#sign in and SignOut and SignUp
+
+@app.route('/signup', methods=['POST','GET'])
+def tag_signup_post():
+    username = request.form['username']
+    name = request.form['name']
+    password = request.form['password']
+
+    user = User(username = username, name=name, password=password)
+    db.session.add(user)
+    db.session.commit()
+
+    t={'userid': user.id,
+        'username' : user.name,
+       }
+
+    return jsonify( {'result': t} )
+
+
+
+@app.route('/signin', methods=['POST','GET'])
+def tag_signin_post():
+    username = request.form['username']
+    password = request.form['password']
+
+    count = User.query.filter_by(username=username, password=password).count()
+    if count != 0:
+                user = User.query.filter_by(username=username,password=password).first()
+                t={'userid': user.id,
+                    'username' : user.username,
+                    'response':1
+                }
+    else:
+        t = {'response':0}
+    return jsonify(t)
 
 ##########################################################################
 
