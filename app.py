@@ -234,7 +234,7 @@ def tag_add_get(user_name, tag_name):
     db.session.add(tag)
     db.session.commit()
 
-    #index_one(tag)
+    index(tagname = tag.tag_name)
 
     res = {}
     res["tag_name"] = tag.tag_name
@@ -355,14 +355,25 @@ with app.app_context():
 
 #General Function
 
+def index(tagname = ' '):
+    if tagname != ' ':
+        tags = Tag.query.filter_by(tag_name=tagname).all()
+    else:
+        tags = Tag.query.all()
 
+    for tag in tags:
+        print("Tag selected : ",tag.tag_name,'\n')
+        pattern = '%'+ tag.tag_name +'%'
+        #, Article.body = ilike(pattern)
+        articles = Article.query.filter(Article.title.ilike(pattern))
+        if articles:
+            for article in articles:
+                print('Article selected : ',article.title,'\n')
+                if article not in tag.articles:
+                    tag.articles.append(article)
+                    db.session.commit()
+                    print('Indexing :',tag.tag_name, ' : ', article.title,'\n')
 
-def index_one(tag):
-    # indexing each tag by searching
-    return
-
-def index_all():
-    #started index
     return
 
 def update_source(src):
@@ -382,10 +393,10 @@ def update_loop():
                 except:
                     continue
 
-        t = Thread(target=index_all)
+        t = Thread(target=index())
         t.start()        # indexting all tags with given articles
 
-        time.sleep(5)
+        time.sleep(60)
 
 
 thread = Thread(target=update_loop)
