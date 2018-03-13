@@ -150,6 +150,28 @@ def sources_post():
 ####################################################################
 
 
+
+@app.route('/news/highlights/username/<username>', methods=['GET'])
+def highlights_get(username):
+
+    user =  User.query.filter_by(username = username).first()
+    response = []
+    if user.tags:
+        for tag in user.tags:
+            if tag.articles:
+                article = tag.articles[0]
+                res = {}
+                res['id'] = article.id
+                res['title'] = article.title
+                res['body'] = article.body
+                res['link'] = article.link
+                res['added'] = article.date_added
+                response.append(res)
+
+    return jsonify({'response' : response })
+
+
+
 @app.route('/news/tagid/<int:id>', methods=['GET'])
 def tag_id_get(id):
 
@@ -207,7 +229,7 @@ def tag_name_get(name):
 def tag_add_get(user_name, tag_name):
 
     user = User.query.filter_by(username=user_name).first()
-    tag = Tag(tag_name = tag_name)
+    tag = Tag(tag_name = tag_name.capitalize())
     tag.users.append(user)
     db.session.add(tag)
     db.session.commit()
@@ -248,7 +270,6 @@ def tag_delete_get(id):
 @app.route('/tag/trending/<int:top>', methods=['GET'])
 def tag_trending_get(top = 10):
 
-
     tags = Tag.query.limit(top)
     output = []
 
@@ -275,6 +296,16 @@ def tag_username_get(username='rnmpatel'):
         output.append(t)
 
     return jsonify( {'user_tag': output } )
+
+
+@app.route('/tag/match', methods=['GET'])
+def autocomplete():
+    results = []
+    search = request.args.get('q')
+    for mv in Tag.query.filter(Tag.tag_name.ilike('%' + str(search) + '%')).limit(8).all():
+        results.append(mv.tag_name)
+    return jsonify(json_list=results)
+
 
 #####################################################################################
 #sign in and SignOut and SignUp
@@ -312,6 +343,8 @@ def tag_signin_post():
     else:
         t = {'response':0}
     return jsonify(t)
+
+
 
 ##########################################################################
 

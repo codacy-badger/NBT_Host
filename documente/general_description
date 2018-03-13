@@ -5,19 +5,25 @@
 
 *------------------------------------------------------------------------*
 
-Abstract Description : To provide personalized news via tagging based  to all kind of devices via REST-Services 
+Abstract Description : To provide personalized news via tagging based  to all kind of devices via REST-Services
 
 *------------------------------------------------------------------------*
 
-Detailed Description : 
-	
-	People have to go to each web site in order to get news but by this kind of web service they will get 
+Detailed Description :
+
+	People have to go to each web site in order to get news but by this kind of web service they will get
 news to all kind of smart devices like android, ios, windows (laptop or phone)
 because of web services used at back-end side.
 
 
+*------------------------------------------------------------------------*
+Milestone :
+1. Adding Full text search
+2. Adding support for more source url for feeder
 
 
+future extennd: profecinate filter
+1.  Stopping vulgure tag name adding to database
 *------------------------------------------------------------------------*
 
 * Techonologies Used :
@@ -30,16 +36,15 @@ Language : python - v-3.2
 Framework : Flask - v-
 Database : PostgreSql - v
 ORM Module : SQLAlchemy -v
-Authentication API : google API
 Full text search : (SQLAlchemy Searchable Module + Postgresql)
-
+Os : Ubuntu 17
 
 *------------------------------------------------------------------------*
 
 ** Front-end Technology
- 
-Smart-Phone  	:	Android (minimum lolipop)
-Laptop 			:	All Browser (Chrome, FireFox, Edge)
+
+Smart-Phone  	:	Android (minimum lolipop) (can be extended)
+Laptop 			:	All Browser (Chrome, FireFox, Edge) (current working)
 
 
 *------------------------------------------------------------------------*
@@ -61,6 +66,18 @@ Laptop 			:	All Browser (Chrome, FireFox, Edge)
 7. Also from android application connected to local wifi network to which server (linux device on which web-services is runnting)   s  also connected, you can consume above activated web-services.
 
 
+Milestone :
+
+1. continuous integration
+2. make add tag button diable while user in not loged in to attract the user to sign in.
+3. better session handling and management for huge group of users.
+4. form validation before sending request.
+5. encrypted data sent to via request.
+6. image support.
+7. vulgure word removal support.
+8. create basic just highlights of news support for android app.
+*. Deployment in live server
+
 
 
 
@@ -69,7 +86,3 @@ Laptop 			:	All Browser (Chrome, FireFox, Edge)
 Created By : Rajat N Movaliya (Branch : CE, SEM : 6, DDU,Nadiad)
 
 Guided By : Jigar M Pandaya( Assistant Professor at DDU, Nadiad)
-
-
-
-
