@@ -1,17 +1,19 @@
-from flask import Flask,abort,jsonify, redirect, request, render_template
+from flask import Flask,abort,jsonify, redirect, request, render_template, session, url_for
 from flask_sqlalchemy import SQLAlchemy
+import requests
 
-# sqlalchey full text searchabal imports
+
+import json
+from datetime import time
 
 import feed
 import datetime
-#import flask_whooshalchemy as wa
 from threading import Thread
 import time
 
 app = Flask(__name__)
 app.debug = True
-db_uri = 'postgresql://user1:0233@localhost/feedreader'
+db_uri = 'postgresql://user1:0233@localhost/pnews'
 app.config['SQLALCHEMY_DATABASE_URI'] = db_uri
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -31,7 +33,7 @@ connector = db.Table('connector',
 
 class Tag(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    tag_name = db.Column(db.Text, nullable=False)
+    tag_name = db.Column(db.Text, nullable=False,unique=True)
     articles = db.relationship('Article', secondary= tagger, backref= db.backref('tags',lazy=True))
     #users = db.relationship('User', secondary= connector, backref= db.backref('tags',lazy=True)
 
@@ -42,113 +44,38 @@ class User(db.Model):
     password = db.Column(db.Text, nullable=False)
     tags = db.relationship('Tag', secondary= connector, backref= db.backref('users',lazy=True))
 
+class Log(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id =  db.Column(db.Text, nullable=False)
+    article_id = db.Column(db.Text, nullable=False)
 
 class Article(db.Model):
-
-   # __searchable__ = ['title','body']
-
 
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.Text, nullable=False)
     body = db.Column(db.Text, nullable=False)
-    link = db.Column(db.Text, nullable=False)
-    guid = db.Column(db.String(255), nullable=False)
-    unread = db.Column(db.Boolean, default=True, nullable=False)
-    source_id = db.Column(db.Integer, db.ForeignKey('source.id'), nullable=False)
-    source = db.relationship('Source', backref=db.backref('articles', lazy=True))
+    link = db.Column(db.Text, nullable=False,unique=True)
+    img_url = db.Column(db.Text, nullable=False)
     date_added = db.Column(db.DateTime, default=datetime.datetime.utcnow)
-
-    #search_vector = db.Column(TSVectorType('title', 'body'))  # changing sa(sqlalchemy) to db
-
-
-    #date_published = db.Column(db.DateTime)
-    __table_args__ = (
-        db.UniqueConstraint('source_id', 'guid', name='uc_source_guid'),
-    )
-
-    @classmethod
-    def insert_from_feed(cls, source_id, feed_articles):
-        stmt = Article.__table__.insert()
-        articles = []
-        for article in feed_articles:
-            articles.append({
-                'title': article['title'],
-                'body': article['summary'],
-                'link': article['link'],
-                'guid': article['id'],
-                'source_id': source_id,
-                #'date_published': article['published']
-            })
-        db.engine.execute(stmt, articles)
-
-
-
-class Source(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.Text, nullable=False)
-    subtitle = db.Column(db.Text, nullable=False)
-    link = db.Column(db.Text, nullable=False)
-    feed = db.Column(db.Text, nullable=False)
-    date_added = db.Column(db.DateTime, default=datetime.datetime.utcnow)
-
-    @classmethod
-    def insert_from_feed(cls, feed, feed_source):
-        link = feed_source['link']
-        title = feed_source['title']
-        subtitle = feed_source['subtitle']
-        source = Source(feed=feed, link=link, title=title, subtitle=subtitle)
-        db.session.add(source)
-        db.session.commit()
-        return source
-
-#wa.whoosh_index(app, Article)
-
-
+    #__table_args__ = (UniqueConstraint('link', name='link_id'),
+    #                 )
 #########################################################################
-
 
 @app.route('/', methods=['GET'])
 def index_get():
-    query = Article.query
-    query = query.filter(Article.unread == True)
-    orderby = request.args.get('orderby', 'added')
-    if orderby == 'added':
-        query = query.order_by(Article.date_added.desc())
-    #elif orderby == 'published':
-    #    query = query.order_by(Article.date_published.desc())
-    elif orderby == 'title':
-        query = query.order_by(Article.title)
-    elif orderby == 'source':
-        query = query.join(Source).order_by(Source.title)
-    articles = query.all()
+
+    articles = Article.query.all()
     return render_template('index.html', articles=articles)
 
-@app.route('/read/<int:article_id>', methods=['GET'])
-def read_article_get(article_id):
-    article = Article.query.get(article_id)
-    article.unread = False
+
+@app.route('/read/<username>/<int:article_id>', methods=['GET'])
+def read_article_get(article_id,username):
+    user = User.query.filter_by(username = username).first()
+    article = Article.query.filter_by(id = article_id).first()
+    log = Log(user_id = user.id, article_id = article_id)
+    db.session.add(log)
     db.session.commit()
     return redirect(article.link)
-
-@app.route('/sources', methods=['GET'])
-def sources_get():
-    query = Source.query
-    query = query.order_by(Source.title)
-    sources = query.all()
-    return render_template('sources.html', sources=sources)
-
-@app.route('/sources', methods=['POST'])
-def sources_post():
-    feed_url = request.form['feed']
-    parsed = feed.parse(feed_url)
-    feed_source = feed.get_source(parsed)
-    source = Source.insert_from_feed(feed_url, feed_source)
-    feed_articles = feed.get_articles(parsed)
-    Article.insert_from_feed(source.id, feed_articles)
-    return redirect('/sources')
-
-####################################################################
-
 
 
 @app.route('/news/highlights/username/<username>', methods=['GET'])
@@ -166,6 +93,7 @@ def highlights_get(username):
                 res['body'] = article.body
                 res['link'] = article.link
                 res['added'] = article.date_added
+                res['img_url'] = article.img_url
                 response.append(res)
 
     return jsonify({'response' : response })
@@ -184,14 +112,12 @@ def tag_id_get(id):
     response = []
     for article in articles:
         res = {}
-
         res['id'] = article.id
         res['title'] = article.title
         res['body'] = article.body
         res['link'] = article.link
-        #res['added'] = article.date_added
-        #res[] = article.
-
+        res['added'] = article.date_added
+        res['img_url'] = article.img_url
         response.append(res)
 
 
@@ -203,23 +129,18 @@ def tag_name_get(name):
 
 
     tag =  Tag.query.filter_by(tag_name = name).first()
-
-    if tag == None:
-         return jsonify({'msg':"Tag is not found"})
-
-    articles = tag.articles
     response = []
-    for article in articles:
-        res = {}
-
-        res['id'] = article.id
-        res['title'] = article.title
-        res['body'] = article.body
-        res['link'] = article.link
-        res['added'] = article.date_added
-        #res[] = article.
-
-        response.append(res)
+    if tag != None:
+        articles = tag.articles
+        for article in articles:
+            res = {}
+            res['id'] = article.id
+            res['title'] = article.title
+            res['body'] = article.body
+            res['link'] = article.link
+            res['added'] = article.date_added
+            res['img_url'] = article.img_url
+            response.append(res)
 
 
     return jsonify({'response' : response })
@@ -228,13 +149,30 @@ def tag_name_get(name):
 @app.route('/tag/add/<user_name>/<tag_name>', methods=['GET'])
 def tag_add_get(user_name, tag_name):
 
-    user = User.query.filter_by(username=user_name).first()
-    tag = Tag(tag_name = tag_name.capitalize())
-    tag.users.append(user)
-    db.session.add(tag)
-    db.session.commit()
+    u = User.query.filter_by(username = user_name).first()
+    if tag_name.capitalize() in u.tags:
+        tag = Tag(tag_name = tag_name.capitalize())
+    else:
 
-    index(tagname = tag.tag_name)
+        user = User.query.filter_by(username=user_name).first()
+        t = Tag.query.filter_by(tag_name = tag_name.capitalize() ).all()
+        if t:
+            tag = t[0]
+        else:
+
+            tag = Tag(tag_name = tag_name.capitalize())
+            db.session.add(tag)
+            db.session.commit()
+            print("hi")
+            #parser(tag.tag_name)
+            #Thread(target=parser, args=([tag.tag_name]).start()
+            Thread(target=parser,args=(tag.tag_name,)).start()
+
+            print(" rajat")
+
+        tag.users.append(user)
+        db.session.add(tag)
+        db.session.commit()
 
     res = {}
     res["tag_name"] = tag.tag_name
@@ -243,15 +181,36 @@ def tag_add_get(user_name, tag_name):
     return jsonify( {'added_tag': res } )
 
 
-@app.route('/tag/delete/<int:id>', methods=['GET'])
-def tag_delete_get(id):
 
-    if id == 0:
+@app.route('/tag/delete/username/<username>/<tagname>', methods=['GET'])
+def tag_delete_username_get(username,tagname):
+    user = User.query.filter_by(username = username).first()
+    if tagname == '*':
+        #db.session.query(Table_name).filter_by(id.in_()).delete()
+        print('I am here')
+        user.tags[:] = []
+        db.session.commit()
+        return "success"
+    else:
+        tag = Tag.query.filter_by(tag_name = tagname).first()
+        user.tags.remove(tag)
+    res = {}
+    res["tag_name"] = tag.tag_name
+    res["id"]= tag.id
+
+    db.session.commit()
+
+    return jsonify( {'deleted_tag':res } )
+
+@app.route('/tag/delete/<tagname>', methods=['GET'])
+def tag_delete_get(tagname):
+
+    if tagname == '*':
         db.session.query(Tag).delete()
         db.session.commit()
         return jsonify({'msg':"Deleted all tags"})
 
-    tag = Tag.query.filter(Tag.id == id).first()
+    tag = Tag.query.filter(Tag.tag_name == tagname).first()
 
     if tag == None:
         return jsonify( {'msg':'tag not found for given id'} )
@@ -270,7 +229,7 @@ def tag_delete_get(id):
 @app.route('/tag/trending/<int:top>', methods=['GET'])
 def tag_trending_get(top = 10):
 
-    tags = Tag.query.limit(top)
+    tags = Tag.query.limit(5).all()
     output = []
 
     for tag in tags:
@@ -344,63 +303,62 @@ def tag_signin_post():
         t = {'response':0}
     return jsonify(t)
 
-
-
 ##########################################################################
-
 
 with app.app_context():
     db.create_all()
 
 
 #General Function
-
-def index(tagname = ' '):
-    if tagname != ' ':
-        tags = Tag.query.filter_by(tag_name=tagname).all()
-    else:
-        tags = Tag.query.all()
-
-    for tag in tags:
-        print("Tag selected : ",tag.tag_name,'\n')
-        pattern = '%'+ tag.tag_name +'%'
-        #, Article.body = ilike(pattern)
-        articles = Article.query.filter(Article.title.ilike(pattern))
-        if articles:
-            for article in articles:
-                print('Article selected : ',article.title,'\n')
-                if article not in tag.articles:
-                    tag.articles.append(article)
-                    db.session.commit()
-                    print('Indexing :',tag.tag_name, ' : ', article.title,'\n')
-
+def parser(tagname = ' '):
+    try:
+        print("insider Parser value of tagname:",tagname)
+        if tagname != ' ':
+            tags = Tag.query.filter_by(tag_name=tagname).all()
+        else:
+            tags = Tag.query.all()
+        print(tags)
+        for tag in tags:
+            print("Tag selected : ",tag.tag_name,'\n')
+            url = ('https://newsapi.org/v2/everything?'+'q='+ tag.tag_name +'&'+'sortBy=popularity&'+'apiKey=838b62c7059448b0ad8383231c8ac614')
+            response = requests.get(url)
+            temp = json.loads(response.text)
+            print("towards adder")
+            adder(tag.tag_name, temp)
+    except:
+        pass
     return
+def adder(tagname, response):
+    try:
+        t = Tag.query.filter_by(tag_name = tagname).first()
+        for article in response['articles']:
+            title = article['title']
+            body = article['description']
+            link = article['url']
+            img_url = article['urlToImage']
 
-def update_source(src):
-    parsed = feed.parse(src.feed)
-    feed_articles = feed.get_articles(parsed) # type is default argument which shows formate to be extracted from the parsed data
-    Article.insert_from_feed(src.id, feed_articles)
-    print('Updated ' + src.feed)
+            a = Article.query.filter_by(link=link).all()
 
+            if a:
+                a=a[0]
+            else:
+                a = Article(title= title, body= body, link = link, img_url = img_url)
+                db.session.add(a)
+                db.session.commit()
+            print('Tag Updated :',t.tag_name,'Article:',a.title)
+            t.articles.append(a)
+            db.session.commit()
+    except:
+        pass
+    return
 
 def update_loop():
     while True:
-        with app.app_context():
-            query = Source.query    # get all sources
-            for src in query.all():
-                try:
-                    update_source(src)  # update news of sources one by one
-                except:
-                    continue
 
-        t = Thread(target=index())
-        t.start()        # indexting all tags with given articles
-
-        time.sleep(60)
-
-
-thread = Thread(target=update_loop)
-thread.start()
+        t = Thread(target=parser())
+        t.start()
+        time.sleep(300)
+    return
 
 if "__main__" == __name__:
     app.run()

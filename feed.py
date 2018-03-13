@@ -16,7 +16,7 @@ def get_articles(parsed,type=1):
     articles = []
 
 
-    if type == 1 :                                  
+    if type == 1 :
 
         entries = parsed['entries']
         for entry in entries:
