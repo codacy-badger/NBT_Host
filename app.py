@@ -320,7 +320,8 @@ def parser(tagname = ' '):
         print(tags)
         for tag in tags:
             print("Tag selected : ",tag.tag_name,'\n')
-            url = ('https://newsapi.org/v2/everything?'+'q='+ tag.tag_name +'&'+'sortBy=popularity&'+'apiKey=838b62c7059448b0ad8383231c8ac614')
+            url = ('https://newsapi.org/v2/everything?'+'q='+ tag.tag_name +'&'+'sortBy=popularity&country=us&'+'apiKey=838b62c7059448b0ad8383231c8ac614')
+            #sortBy=publishedAt
             response = requests.get(url)
             temp = json.loads(response.text)
             print("towards adder")
