@@ -11,6 +11,7 @@ import datetime
 from threading import Thread
 import time
 
+
 app = Flask(__name__)
 app.debug = True
 db_uri = 'postgresql://user1:0233@localhost/pnews'
@@ -87,6 +88,7 @@ def highlights_get(username):
         for tag in user.tags:
             if tag.articles:
                 article = tag.articles[0]
+
                 res = {}
                 res['id'] = article.id
                 res['title'] = article.title
@@ -159,16 +161,21 @@ def tag_add_get(user_name, tag_name):
         if t:
             tag = t[0]
         else:
+            result = requests.get("http://www.purgomalum.com/service/containsprofanity?text="+tag_name)
+            if result.text == 'true':
+                return jsonify({'status':0})
+                #return ('Yes it contain vulger')
+                #return 'No it is not conatain'
 
-            tag = Tag(tag_name = tag_name.capitalize())
-            db.session.add(tag)
-            db.session.commit()
-            print("hi")
-            #parser(tag.tag_name)
-            #Thread(target=parser, args=([tag.tag_name]).start()
-            Thread(target=parser,args=(tag.tag_name,)).start()
+            else :
+                tag = Tag(tag_name = tag_name.capitalize())
+                db.session.add(tag)
+                db.session.commit()
+                print("hi")
+                #parser(tag.tag_name)
+                #Thread(target=parser, args=([tag.tag_name]).start()
+                Thread(target=parser,args=(tag.tag_name,)).start()
 
-            print(" rajat")
 
         tag.users.append(user)
         db.session.add(tag)
@@ -178,7 +185,7 @@ def tag_add_get(user_name, tag_name):
     res["tag_name"] = tag.tag_name
     res["id"]= tag.id
     res['username']=user.username
-    return jsonify( {'added_tag': res } )
+    return jsonify( {'added_tag': res,'status':1 } )
 
 
 

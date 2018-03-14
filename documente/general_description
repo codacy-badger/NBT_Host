@@ -22,7 +22,7 @@ Milestone :
 2. Adding support for more source url for feeder
 
 
-future extennd: profecinate filter
+future extennd: profenity filter
 1.  Stopping vulgure tag name adding to database
 *------------------------------------------------------------------------*
 
@@ -38,6 +38,7 @@ Database : PostgreSql - v
 ORM Module : SQLAlchemy -v
 Full text search : (SQLAlchemy Searchable Module + Postgresql)
 Os : Ubuntu 17
+purgomalan free profanity checker api 
 
 *------------------------------------------------------------------------*
 
