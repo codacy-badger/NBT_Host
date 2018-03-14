@@ -14,7 +14,7 @@ import time
 
 app = Flask(__name__)
 app.debug = True
-db_uri = 'postgresql://user1:0233@localhost/pnews'
+db_uri = 'postgresql://user1:0233@localhost/pnews_temp'
 app.config['SQLALCHEMY_DATABASE_URI'] = db_uri
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -43,6 +43,8 @@ class User(db.Model):
     name =  db.Column(db.Text, nullable=False)
     username = db.Column(db.Text, nullable=False)
     password = db.Column(db.Text, nullable=False)
+    que = db.Column(db.Text, nullable=False)
+    ans = db.Column(db.Text, nullable=False)
     tags = db.relationship('Tag', secondary= connector, backref= db.backref('users',lazy=True))
 
 class Log(db.Model):
@@ -106,21 +108,20 @@ def highlights_get(username):
 def tag_id_get(id):
 
     tag =  Tag.query.filter_by(id = id).first()
-
-    if tag == None:
-         return jsonify({'msg':"Tag is not found"})
-
-    articles = tag.articles
     response = []
-    for article in articles:
-        res = {}
-        res['id'] = article.id
-        res['title'] = article.title
-        res['body'] = article.body
-        res['link'] = article.link
-        res['added'] = article.date_added
-        res['img_url'] = article.img_url
-        response.append(res)
+
+    if tag != None:
+        articles = tag.articles
+        if articles:
+            for article in articles:
+                res = {}
+                res['id'] = article.id
+                res['title'] = article.title
+                res['body'] = article.body
+                res['link'] = article.link
+                res['added'] = article.date_added
+                res['img_url'] = article.img_url
+                response.append(res)
 
 
     return jsonify({'response' : response })
@@ -134,15 +135,16 @@ def tag_name_get(name):
     response = []
     if tag != None:
         articles = tag.articles
-        for article in articles:
-            res = {}
-            res['id'] = article.id
-            res['title'] = article.title
-            res['body'] = article.body
-            res['link'] = article.link
-            res['added'] = article.date_added
-            res['img_url'] = article.img_url
-            response.append(res)
+        if articles:
+            for article in articles:
+                res = {}
+                res['id'] = article.id
+                res['title'] = article.title
+                res['body'] = article.body
+                res['link'] = article.link
+                res['added'] = article.date_added
+                res['img_url'] = article.img_url
+                response.append(res)
 
 
     return jsonify({'response' : response })
@@ -236,9 +238,8 @@ def tag_delete_get(tagname):
 @app.route('/tag/trending/<int:top>', methods=['GET'])
 def tag_trending_get(top = 10):
 
-    tags = Tag.query.limit(5).all()
+    tags = Tag.query.limit(10).all()
     output = []
-
     for tag in tags:
         t = {}
         t['id'] = tag.id
@@ -274,15 +275,52 @@ def autocomplete():
 
 
 #####################################################################################
+
+@app.route('/user/username/<username>', methods=['GET'])
+def user_details_get(username):
+
+    u = User.query.filter_by(username = username).all()
+    t = {}
+    if u:
+        user = u[0]
+        t['id'] = user.id
+        t['username'] = user.username
+        t['name'] = user.name
+        t['que'] = user.que
+        t['ans'] = user.ans
+    #arr = []
+    #arr.append(t)
+    return jsonify( {'user':t})
+
+
+@app.route('/user/update/username/<username>', methods=['GET'])
+def user_details_update_get(username):
+
+    user = User.query.filter_by(username = username).first()
+    if 'password' in request.args:
+        user.password = request.args.get('password')
+    if 'name' in request.args:
+        user.name = request.args.get('name')
+    if 'que' in request.args:
+        user.que = request.args.get('que')
+    if 'ans' in request.args:
+        user.ans = request.args.get('ans')
+    db.session.commit()
+    return jsonify( {'status': '1'})
+
+#####################################################################################
 #sign in and SignOut and SignUp
 
-@app.route('/signup', methods=['POST','GET'])
+@app.route('/signup', methods=['POST'])
 def tag_signup_post():
+
     username = request.form['username']
     name = request.form['name']
+    ans = request.form['ans']
+    que = request.form['que']
     password = request.form['password']
 
-    user = User(username = username, name=name, password=password)
+    user = User(username = username, name=name, password=password, que=que, ans=ans)
     db.session.add(user)
     db.session.commit()
 
@@ -294,7 +332,7 @@ def tag_signup_post():
 
 
 
-@app.route('/signin', methods=['POST','GET'])
+@app.route('/signin', methods=['POST'])
 def tag_signin_post():
     username = request.form['username']
     password = request.form['password']
@@ -327,14 +365,19 @@ def parser(tagname = ' '):
         print(tags)
         for tag in tags:
             print("Tag selected : ",tag.tag_name,'\n')
-            url = ('https://newsapi.org/v2/everything?'+'q='+ tag.tag_name +'&'+'sortBy=popularity&country=us&'+'apiKey=838b62c7059448b0ad8383231c8ac614')
+            url = ('https://newsapi.org/v2/everything?'+'q='+ tag.tag_name +'&sortBy=popularity&'+'apiKey=838b62c7059448b0ad8383231c8ac614')
             #sortBy=publishedAt
+            print (url)
             response = requests.get(url)
+
             temp = json.loads(response.text)
+            print("Tag Name:",tag.tag_name,"status",temp['status'],"TotalResult:",temp['totalResults'])
+
             print("towards adder")
             adder(tag.tag_name, temp)
     except:
         pass
+        print("passed")
     return
 def adder(tagname, response):
     try:
