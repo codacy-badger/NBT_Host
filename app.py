@@ -19,10 +19,15 @@ db='pnews2'
 
 
 app = Flask(__name__)
-app.debug = True
-db_uri = 'postgresql://'+username+':'+password+'@'+host+'/'+db
-app.config['SQLALCHEMY_DATABASE_URI'] = db_uri
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+if os.environ.get('ENV') == 'production':
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
+    app.config['DEBUG'] = False
+else:
+    app.debug = True
+    db_uri = 'postgresql://'+username+':'+password+'@'+host+'/'+db
+    app.config['SQLALCHEMY_DATABASE_URI'] = db_uri
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
