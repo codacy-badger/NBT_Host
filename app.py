@@ -601,5 +601,5 @@ Thread(target=parser).start()
 Thread(target=update_loop).start()
 
 db.create_all()
-#if "__main__" == __name__:
-#    app.run()
+if "__main__" == __name__:
+   app.run()
