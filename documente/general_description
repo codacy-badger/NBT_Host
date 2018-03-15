@@ -18,11 +18,9 @@ because of web services used at back-end side.
 
 *------------------------------------------------------------------------*
 Milestone :
-1. Adding Full text search
-2. Adding support for more source url for feeder
+1. All request should be post 
 
-
-future extennd: profecinate filter
+future extennd: profenity filter
 1.  Stopping vulgure tag name adding to database
 *------------------------------------------------------------------------*
 
@@ -38,6 +36,7 @@ Database : PostgreSql - v
 ORM Module : SQLAlchemy -v
 Full text search : (SQLAlchemy Searchable Module + Postgresql)
 Os : Ubuntu 17
+purgomalan free profanity checker api
 
 *------------------------------------------------------------------------*
 
