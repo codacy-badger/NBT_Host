@@ -9,12 +9,18 @@ from datetime import time
 import feed
 import datetime
 from threading import Thread
-import time
+
+
+#--- Variables
+username='user1'
+password='0233'
+host='localhost'
+db='pnews2'
 
 
 app = Flask(__name__)
 app.debug = True
-db_uri = 'postgresql://user1:0233@localhost/pnews_temp'
+db_uri = 'postgresql://'+username+':'+password+'@'+host+'/'+db
 app.config['SQLALCHEMY_DATABASE_URI'] = db_uri
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -55,10 +61,10 @@ class Log(db.Model):
 class Article(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.Text, nullable=False)
-    body = db.Column(db.Text, nullable=False)
-    link = db.Column(db.Text, nullable=False,unique=True)
-    img_url = db.Column(db.Text, nullable=False)
+    title = db.Column(db.Text, nullable=False ,default="Title is not available")
+    body = db.Column(db.Text, nullable=False,default="Body is not available")
+    link = db.Column(db.Text, nullable=False,unique=True,default="https://www.grammarly.com/blog/articles/")
+    img_url = db.Column(db.Text, nullable=False,default="https://www.google.co.in/search?q=image+of+nature&newwindow=1&tbm=isch&source=iu&ictx=1&fir=K4ZYBhoGJrlOPM%253A%252CVQ9FGsDbUMuBBM%252C_&usg=__Wwf5MVVZ4c9GR0SO67BrQMr3pek%3D&sa=X&ved=0ahUKEwiVoYPr2-7ZAhVHQo8KHYuZBIUQ9QEIMDAD#imgrc=K4ZYBhoGJrlOPM:")
     date_added = db.Column(db.DateTime, default=datetime.datetime.utcnow)
     #__table_args__ = (UniqueConstraint('link', name='link_id'),
     #                 )
@@ -131,7 +137,7 @@ def tag_id_get(id):
 def tag_name_get(name):
 
 
-    tag =  Tag.query.filter_by(tag_name = name).first()
+    tag =  Tag.query.filter_by(tag_name = name).order_by(id).first()
     response = []
     if tag != None:
         articles = tag.articles
@@ -149,6 +155,7 @@ def tag_name_get(name):
 
     return jsonify({'response' : response })
 
+tag_list = [ ] # tag_list
 
 @app.route('/tag/add/<user_name>/<tag_name>', methods=['GET'])
 def tag_add_get(user_name, tag_name):
@@ -163,23 +170,22 @@ def tag_add_get(user_name, tag_name):
         if t:
             tag = t[0]
         else:
-            result = requests.get("http://www.purgomalum.com/service/containsprofanity?text="+tag_name)
-            if result.text == 'true' or result.status_code != 200:
-                return jsonify({'status':0})
-                #return ('Yes it contain vulger')
-                #return 'No it is not conatain'
+            try:
+                result = requests.get("http://www.purgomalum.com/service/containsprofanity?text="+tag_name)
+                if result.status_code == 200:
+                    if result.text == 'true':
+                       return jsonify({'status':0})
+            except:
+                pass
 
-            else :
-                tag = Tag(tag_name = tag_name.capitalize())
-                db.session.add(tag)
-                db.session.commit()
-                print("hi")
-                #parser(tag.tag_name)
-                #Thread(target=parser, args=([tag.tag_name]).start()
-                #tag_list.insert(0,tag.tag_name)
-                Thread(target=parser,args=(tag.tag_name,)).start()
-
-
+            tag = Tag(tag_name = tag_name.capitalize())
+            db.session.add(tag)
+            db.session.commit()
+            print("hi")
+            #parser(tag.tag_name)
+            #Thread(target=parser, args=([tag.tag_name]).start()
+            tag_list.insert(0,tag.tag_name)
+            #Thread(target=parser,args=(tag.tag_name,)).start()
         tag.users.append(user)
         db.session.add(tag)
         db.session.commit()
@@ -354,55 +360,200 @@ def tag_signin_post():
 with app.app_context():
     db.create_all()
 
-"""
-#General Function
-def parser(tagname = ' '):
-    try:
-        print("insider Parser value of tagname:",tagname)
-        if tagname != ' ':
-            tags = Tag.query.filter_by(tag_name=tagname).all()
-        else:
-            tags = Tag.query.all()
-        print(tags)
-        for tag in tags:
-            print("Tag selected : ",tag.tag_name,'\n')
-            url = ('https://newsapi.org/v2/everything?'+'q='+ tag.tag_name +'&sortBy=popularity&'+'apiKey=838b62c7059448b0ad8383231c8ac614')
-            #sortBy=publishedAt
-            print (url)
-            response = requests.get(url)
 
+def parser():
+        while True:
+            while not tag_list:
+                #print("tag_list is empty so sleeping")
+                time.sleep(1)
+
+            tagname = tag_list.pop()
+            print("insider Parser value of tagname:",tagname)
+            tag = Tag.query.filter_by(tag_name=tagname).first()
+            print("Tag selected : ",tag.tag_name,'\n')
+            #----------------------------------------------------------------
+            while True:
+                payload = {'q':tag.tag_name,'sources':'the-times-of-india', 'sortBy':'popularity', 'apiKey':'838b62c7059448b0ad8383231c8ac614'}
+                url = 'https://newsapi.org/v2/top-headlines'
+                print("\n\n",payload['sources'],"\n\n")
+                print(url)
+                response = requests.get(url, params=payload)
+                print (response.url)
+                if response.status_code != 429:
+                    break
+                print("Status code is 429 so sleeping")
+                time.sleep(100)
+            if response.status_code != 200:
+                print("response.status_code",response.status_code)
+                temp = json.loads(response.text)
+                print(temp['code'],temp['message'])
+                continue
             temp = json.loads(response.text)
             print("Tag Name:",tag.tag_name,"status",temp['status'],"TotalResult:",temp['totalResults'])
-
             print("towards adder")
             adder(tag.tag_name, temp)
-    except:
-        pass
-        print("passed")
-    return
+            #----------------------------------------------------------------
+            while True:
+                payload = {'q':tag.tag_name,'sources':'the-hindu', 'sortBy':'popularity', 'apiKey':'838b62c7059448b0ad8383231c8ac614'}
+                url = 'https://newsapi.org/v2/top-headlines'
+                print("\n\n",payload['sources'],"\n\n")
+                print(url)
+                response = requests.get(url, params=payload)
+                print (response.url)
+                if response.status_code != 429:
+                    break
+                print("Status code is 429 so sleeping")
+                time.sleep(100)
+            if response.status_code != 200:
+                print("response.status_code",response.status_code)
+                temp = json.loads(response.text)
+                print(temp['code'],temp['message'])
+                continue
+            temp = json.loads(response.text)
+            print("Tag Name:",tag.tag_name,"status",temp['status'],"TotalResult:",temp['totalResults'])
+            print("towards adder")
+            adder(tag.tag_name, temp)
 
-"""
+            #----------------------------------------------------------------
+            #----------------------------------------------------------------
+            while True:
+                payload = {'q':tag.tag_name,'sources':'bbc-news', 'sortBy':'popularity', 'apiKey':'838b62c7059448b0ad8383231c8ac614'}
+                url = 'https://newsapi.org/v2/top-headlines'
+                print("\n\n",payload['sources'],"\n\n")
+                print(url)
+                response = requests.get(url, params=payload)
+                print (response.url)
+                if response.status_code != 429:
+                    break
+                print("Status code is 429 so sleeping")
+                time.sleep(100)
+            if response.status_code != 200:
+                print("response.status_code",response.status_code)
+                temp = json.loads(response.text)
+                print(temp['code'],temp['message'])
+                continue
+            temp = json.loads(response.text)
+            print("Tag Name:",tag.tag_name,"status",temp['status'],"TotalResult:",temp['totalResults'])
+            print("towards adder")
+            adder(tag.tag_name, temp)
 
-def parser(tagname):
-    try:
-        print("insider Parser value of tagname:",tagname)
-        tag = Tag.query.filter_by(tag_name=tagname).first()
-        print(tag.tag_name)
-        print("Tag selected : ",tag.tag_name,'\n')
-        url = ('https://newsapi.org/v2/top-headlines?'+'q='+ tag.tag_name +'&sortBy=popularity&'+'apiKey=838b62c7059448b0ad8383231c8ac614')
-        #sortBy=publishedAt
-        print (url)
-        response = requests.get(url)
-        if response.status_code == 429:
+            #----------------------------------------------------------------
+            while True:
+                payload = {'q':tag.tag_name,'sources':'google-news-in', 'sortBy':'popularity', 'apiKey':'838b62c7059448b0ad8383231c8ac614'}
+                url = 'https://newsapi.org/v2/everything'
+                print("\n\n",payload['sources'],"\n\n")
+                print(url)
+                response = requests.get(url, params=payload)
+                print (response.url)
+                if response.status_code != 429:
+                    break
+                print("Status code is 429 so sleeping")
+                time.sleep(100)
+            if response.status_code != 200:
+                print("response.status_code",response.status_code)
+                temp = json.loads(response.text)
+                print(temp['code'],temp['message'])
+                continue
+            temp = json.loads(response.text)
+            print("Tag Name:",tag.tag_name,"status",temp['status'],"TotalResult:",temp['totalResults'])
+            print("towards adder")
+            adder(tag.tag_name, temp)
 
-        temp = json.loads(response.text)
-        print("Tag Name:",tag.tag_name,"status",temp['status'],"TotalResult:",temp['totalResults'])
-        print("towards adder")
-        adder(tag.tag_name, temp)
-    except:
-        pass
-        print("passed")
-    return
+            #-----------------------------------------------------------------
+            #----------------------------------------------------------------
+            while True:
+                payload = {'q':tag.tag_name,'sources':'bbc-news', 'sortBy':'popularity', 'apiKey':'838b62c7059448b0ad8383231c8ac614'}
+                url = 'https://newsapi.org/v2/everything'
+                print("\n\n",payload['sources'],"\n\n")
+                print(url)
+                response = requests.get(url, params=payload)
+                print (response.url)
+                if response.status_code != 429:
+                    break
+                print("Status code is 429 so sleeping")
+                time.sleep(100)
+            if response.status_code != 200:
+                print("response.status_code",response.status_code)
+                temp = json.loads(response.text)
+                print(temp['code'],temp['message'])
+                continue
+            temp = json.loads(response.text)
+            print("Tag Name:",tag.tag_name,"status",temp['status'],"TotalResult:",temp['totalResults'])
+            print("towards adder")
+            adder(tag.tag_name, temp)
+
+            #-----------------------------------------------------------------
+            #----------------------------------------------------------------
+            while True:
+                payload = {'q':tag.tag_name,'sources':'the-times-of-india', 'sortBy':'popularity', 'apiKey':'838b62c7059448b0ad8383231c8ac614'}
+                url = 'https://newsapi.org/v2/everything'
+                print("\n\n",payload['sources'],"\n\n")
+                print(url)
+                response = requests.get(url, params=payload)
+                print (response.url)
+                if response.status_code != 429:
+                    break
+                print("Status code is 429 so sleeping")
+                time.sleep(100)
+            if response.status_code != 200:
+                print("response.status_code",response.status_code)
+                temp = json.loads(response.text)
+                print(temp['code'],temp['message'])
+                continue
+            temp = json.loads(response.text)
+            print("Tag Name:",tag.tag_name,"status",temp['status'],"TotalResult:",temp['totalResults'])
+            print("towards adder")
+            adder(tag.tag_name, temp)
+
+            #-----------------------------------------------------------------
+            #----------------------------------------------------------------
+            while True:
+                payload = {'q':tag.tag_name,'sources':'the-hindu', 'sortBy':'popularity', 'apiKey':'838b62c7059448b0ad8383231c8ac614'}
+                url = 'https://newsapi.org/v2/everything'
+                print("\n\n",payload['sources'],"\n\n")
+                print(url)
+                response = requests.get(url, params=payload)
+                print (response.url)
+                if response.status_code != 429:
+                    break
+                print("Status code is 429 so sleeping")
+                time.sleep(100)
+            if response.status_code != 200:
+                print("response.status_code",response.status_code)
+                temp = json.loads(response.text)
+                print(temp['code'],temp['message'])
+                continue
+            temp = json.loads(response.text)
+            print("Tag Name:",tag.tag_name,"status",temp['status'],"TotalResult:",temp['totalResults'])
+            print("towards adder")
+            adder(tag.tag_name, temp)
+
+            #-----------------------------------------------------------------
+            #-----------------------------------------------------------------
+            while True:
+                payload = {'q':tag.tag_name, 'sortBy':'popularity', 'apiKey':'838b62c7059448b0ad8383231c8ac614'}
+                url = 'https://newsapi.org/v2/everything'
+                print("\n\n","everything","\n\n")
+                print(url)
+
+                response = requests.get(url, params=payload)
+
+                print (response.url)
+                if response.status_code != 429:
+                    break
+                print("Status code is 429 so sleeping")
+                time.sleep(100)
+            if response.status_code != 200:
+                print("response.status_code",response.status_code)
+                temp = json.loads(response.text)
+                print(temp['code'],temp['message'])
+                continue
+            temp = json.loads(response.text)
+            print("Tag Name:",tag.tag_name,"status",temp['status'],"TotalResult:",temp['totalResults'])
+            print("towards adder")
+            adder(tag.tag_name, temp)
+
+        return
 
 
 def adder(tagname, response):
@@ -433,13 +584,17 @@ def adder(tagname, response):
 
 def update_loop():
     while True:
+        time.sleep(60*60*24)
         tags = Tag.query.all()
+        list = []
         for tag in tags:
-            Thread(target=parser(tag.tag_name)).start()
-        time.sleep(24*60*60) # in seconds
+            list.append(tag.tag_name)
+        tag_list.extend(list)
+        time.sleep(60*60*24)
     return
 
-#update_loop()
+Thread(target=parser).start()
+Thread(target=update_loop).start()
 
 if "__main__" == __name__:
     app.run()

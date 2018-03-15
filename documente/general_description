@@ -18,9 +18,7 @@ because of web services used at back-end side.
 
 *------------------------------------------------------------------------*
 Milestone :
-1. Adding Full text search
-2. Adding support for more source url for feeder
-
+1. All request should be post 
 
 future extennd: profenity filter
 1.  Stopping vulgure tag name adding to database

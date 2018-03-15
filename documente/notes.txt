@@ -20,3 +20,7 @@ crone jobs linux
 api key for timesindia : 838b62c7059448b0ad8383231c8ac614
 
 https://newsapi.org/v2/everything?q=Science&%27sortBy=popularity&apiKey=838b62c7059448b0ad8383231c8ac614
+
+-------------------------------------------------
+
+HEROKU : rajatmovaliya512@gmail.com
