@@ -164,7 +164,7 @@ def tag_add_get(user_name, tag_name):
             tag = t[0]
         else:
             result = requests.get("http://www.purgomalum.com/service/containsprofanity?text="+tag_name)
-            if result.text == 'true':
+            if result.text == 'true' or result.status_code != 200:
                 return jsonify({'status':0})
                 #return ('Yes it contain vulger')
                 #return 'No it is not conatain'
@@ -176,6 +176,7 @@ def tag_add_get(user_name, tag_name):
                 print("hi")
                 #parser(tag.tag_name)
                 #Thread(target=parser, args=([tag.tag_name]).start()
+                #tag_list.insert(0,tag.tag_name)
                 Thread(target=parser,args=(tag.tag_name,)).start()
 
 
@@ -353,7 +354,7 @@ def tag_signin_post():
 with app.app_context():
     db.create_all()
 
-
+"""
 #General Function
 def parser(tagname = ' '):
     try:
@@ -379,37 +380,66 @@ def parser(tagname = ' '):
         pass
         print("passed")
     return
+
+"""
+
+def parser(tagname):
+    try:
+        print("insider Parser value of tagname:",tagname)
+        tag = Tag.query.filter_by(tag_name=tagname).first()
+        print(tag.tag_name)
+        print("Tag selected : ",tag.tag_name,'\n')
+        url = ('https://newsapi.org/v2/top-headlines?'+'q='+ tag.tag_name +'&sortBy=popularity&'+'apiKey=838b62c7059448b0ad8383231c8ac614')
+        #sortBy=publishedAt
+        print (url)
+        response = requests.get(url)
+        if response.status_code == 429:
+
+        temp = json.loads(response.text)
+        print("Tag Name:",tag.tag_name,"status",temp['status'],"TotalResult:",temp['totalResults'])
+        print("towards adder")
+        adder(tag.tag_name, temp)
+    except:
+        pass
+        print("passed")
+    return
+
+
 def adder(tagname, response):
     try:
         t = Tag.query.filter_by(tag_name = tagname).first()
-        for article in response['articles']:
-            title = article['title']
-            body = article['description']
-            link = article['url']
-            img_url = article['urlToImage']
+        if t:
+            for article in response['articles']:
+                title = article['title']
+                body = article['description']
+                link = article['url']
+                img_url = article['urlToImage']
 
-            a = Article.query.filter_by(link=link).all()
-
-            if a:
-                a=a[0]
-            else:
-                a = Article(title= title, body= body, link = link, img_url = img_url)
-                db.session.add(a)
+                a = Article.query.filter_by(link=link).all()
+                if a:
+                    a=a[0]
+                else:
+                    a = Article(title= title, body= body, link = link, img_url = img_url)
+                    db.session.add(a)
+                    db.session.commit()
+                print('Tag Updated :',t.tag_name,'Article:',a.title)
+                t.articles.append(a)
                 db.session.commit()
-            print('Tag Updated :',t.tag_name,'Article:',a.title)
-            t.articles.append(a)
-            db.session.commit()
+        else:
+            print("tag is not found")
     except:
         pass
     return
 
 def update_loop():
     while True:
-
-        t = Thread(target=parser())
-        t.start()
-        time.sleep(300)
+        tags = Tag.query.all()
+        for tag in tags:
+            Thread(target=parser(tag.tag_name)).start()
+        time.sleep(24*60*60) # in seconds
     return
+
+#update_loop()
 
 if "__main__" == __name__:
     app.run()
