@@ -5,7 +5,7 @@ import os
 
 
 import json
-from datetime import time
+import time
 
 import datetime
 from threading import Thread
