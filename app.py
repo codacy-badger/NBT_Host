@@ -6,7 +6,6 @@ import requests
 import json
 from datetime import time
 
-import feed
 import datetime
 from threading import Thread
 
