@@ -10,7 +10,6 @@ import feed
 import datetime
 from threading import Thread
 
-
 #--- Variables
 username='user1'
 password='0233'
@@ -601,5 +600,5 @@ def update_loop():
 Thread(target=parser).start()
 Thread(target=update_loop).start()
 
-if "__main__" == __name__:
-    app.run()
+#if "__main__" == __name__:
+#    app.run()
