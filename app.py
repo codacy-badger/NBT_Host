@@ -140,7 +140,7 @@ def tag_id_get(id):
 def tag_name_get(name):
 
 
-    tags =  Tag.query.filter_by(tag_name = name).order_by(id).all()
+    tags =  Tag.query.filter_by(tag_name = name).all()
     response = []
     if tags != None:
         articles = tags[0].articles
