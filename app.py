@@ -142,7 +142,7 @@ def tag_name_get(name):
 
     tags =  Tag.query.filter_by(tag_name = name).all()
     response = []
-    if tags != None:
+    if tags:
         articles = tags[0].articles
         if articles:
             for article in articles:
