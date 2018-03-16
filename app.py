@@ -2,8 +2,6 @@ from flask import Flask,abort,jsonify, redirect, request, render_template, sessi
 from flask_sqlalchemy import SQLAlchemy
 import requests
 import os
-
-
 import json
 import time
 
@@ -22,6 +20,7 @@ app = Flask(__name__)
 if os.environ.get('ENV') == 'production':
     app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
     app.config['DEBUG'] = False
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 else:
     app.debug = True
     db_uri = 'postgresql://'+username+':'+password+'@'+host+'/'+db
@@ -141,10 +140,10 @@ def tag_id_get(id):
 def tag_name_get(name):
 
 
-    tag =  Tag.query.filter_by(tag_name = name).order_by(id).first()
+    tags =  Tag.query.filter_by(tag_name = name).order_by(id).all()
     response = []
-    if tag != None:
-        articles = tag.articles
+    if tags != None:
+        articles = tags[0].articles
         if articles:
             for article in articles:
                 res = {}
