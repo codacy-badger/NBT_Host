@@ -1,5 +1,6 @@
 from flask import Flask,abort,jsonify, redirect, request, render_template, session, url_for
 from flask_sqlalchemy import SQLAlchemy
+from profanity import is_bad_word
 import requests
 import os
 import json
@@ -12,10 +13,11 @@ from threading import Thread
 username='user1'
 password='0233'
 host='localhost'
-db='pnews2'
+db='p2'
 
 
 app = Flask(__name__)
+app.config['JSON_SORT_KEYS'] = False
 
 if os.environ.get('ENV') == 'production':
     app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
@@ -28,6 +30,7 @@ else:
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
+
 
 tagger = db.Table('tagger',
             db.Column('id', db.Integer, primary_key=True),
@@ -44,6 +47,8 @@ connector = db.Table('connector',
 class Tag(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     tag_name = db.Column(db.Text, nullable=False,unique=True)
+    clicks = db.Column(db.Integer)
+    num_users = db.Column(db.Integer)
     articles = db.relationship('Article', secondary= tagger, backref= db.backref('tags',lazy=True))
     #users = db.relationship('User', secondary= connector, backref= db.backref('tags',lazy=True)
 
@@ -95,24 +100,30 @@ def highlights_get(username):
 
     user =  User.query.filter_by(username = username).first()
     response = []
+    total_count = 0
     if user.tags:
         for tag in user.tags:
             if tag.articles:
-                article = tag.articles[0]
+                count=0
+                for article in tag.articles:
+                    if count > 5:
+                        break
+                    else:
+                        count+=1
+                    res = {}
+                    res['id'] = article.id
+                    res['title'] = article.title
+                    res['body'] = article.body
+                    res['link'] = article.link
+                    res['added'] = article.date_added
+                    res['img_url'] = article.img_url
+                    response.append(res)
+                    total_count+=1
 
-                res = {}
-                res['id'] = article.id
-                res['title'] = article.title
-                res['body'] = article.body
-                res['link'] = article.link
-                res['added'] = article.date_added
-                res['img_url'] = article.img_url
-                response.append(res)
-
-    return jsonify({'response' : response })
+    return jsonify({'response' : response, 'count':str(count) })
 
 
-
+"""
 @app.route('/news/tagid/<int:id>', methods=['GET'])
 def tag_id_get(id):
 
@@ -134,18 +145,27 @@ def tag_id_get(id):
 
 
     return jsonify({'response' : response })
-
+"""
 
 @app.route('/news/tagname/<name>', methods=['GET'])
 def tag_name_get(name):
 
-
     tags =  Tag.query.filter_by(tag_name = name).all()
     response = []
+    total_count = 0
     if tags:
+
+        tags[0].clicks = tags[0].clicks + 1
+        db.session.commit()
+    
         articles = tags[0].articles
         if articles:
+            count=0
             for article in articles:
+                if count > 20:
+                    break
+                else:
+                    count+=1
                 res = {}
                 res['id'] = article.id
                 res['title'] = article.title
@@ -154,9 +174,10 @@ def tag_name_get(name):
                 res['added'] = article.date_added
                 res['img_url'] = article.img_url
                 response.append(res)
+                total_count+=1
 
 
-    return jsonify({'response' : response })
+    return jsonify({'response' : response ,'count':total_count})
 
 tag_list = [ ] # tag_list
 
@@ -164,24 +185,34 @@ tag_list = [ ] # tag_list
 def tag_add_get(user_name, tag_name):
 
     u = User.query.filter_by(username = user_name).first()
+    if len(u.tags) >= 5:
+        return jsonify({'status':0,'msg':'!! Maximum five tags can be added only, delete less prior tags first!!'})
+    tag_name = tag_name.title()
+    u = User.query.filter_by(username = user_name).first()
     if tag_name.capitalize() in u.tags:
-        tag = Tag(tag_name = tag_name.capitalize())
+        tag = Tag(tag_name = tag_name)
     else:
 
         user = User.query.filter_by(username=user_name).first()
-        t = Tag.query.filter_by(tag_name = tag_name.capitalize() ).all()
+        t = Tag.query.filter_by(tag_name = tag_name).all()
+
         if t:
             tag = t[0]
+            print("word is already there")
         else:
+            if is_bad_word(tag_name) == True:
+                print("return true")
+                return jsonify({'status':0,'msg':'!! Profanity word as tag name is not allowed !!'})
+            """
             try:
                 result = requests.get("http://www.purgomalum.com/service/containsprofanity?text="+tag_name)
                 if result.status_code == 200:
                     if result.text == 'true':
-                       return jsonify({'status':0})
+                       return jsonify({'status':0,'msg':'!! Profanity word as tag name is not allowed !!'})
             except:
                 pass
-
-            tag = Tag(tag_name = tag_name.capitalize())
+            """
+            tag = Tag(tag_name = tag_name,clicks=1,num_users=0)
             db.session.add(tag)
             db.session.commit()
             print("hi")
@@ -189,6 +220,7 @@ def tag_add_get(user_name, tag_name):
             #Thread(target=parser, args=([tag.tag_name]).start()
             tag_list.insert(0,tag.tag_name)
             #Thread(target=parser,args=(tag.tag_name,)).start()
+        tag.num_users =tag.num_users + 1
         tag.users.append(user)
         db.session.add(tag)
         db.session.commit()
@@ -200,19 +232,22 @@ def tag_add_get(user_name, tag_name):
     return jsonify( {'added_tag': res,'status':1 } )
 
 
-
 @app.route('/tag/delete/username/<username>/<tagname>', methods=['GET'])
 def tag_delete_username_get(username,tagname):
     user = User.query.filter_by(username = username).first()
     if tagname == '*':
         #db.session.query(Table_name).filter_by(id.in_()).delete()
         print('I am here')
+        for tag in user.tags:
+            tag.num_users -= 1
         user.tags[:] = []
         db.session.commit()
         return "success"
     else:
         tag = Tag.query.filter_by(tag_name = tagname).first()
         user.tags.remove(tag)
+        tag.num_users -= 1
+        db.session.commit()
     res = {}
     res["tag_name"] = tag.tag_name
     res["id"]= tag.id
@@ -247,10 +282,12 @@ def tag_delete_get(tagname):
 
 @app.route('/tag/trending/<int:top>', methods=['GET'])
 def tag_trending_get(top = 10):
+    tags = Tag.query.order_by(Tag.num_users.desc()).limit(10).all()
 
-    tags = Tag.query.limit(10).all()
     output = []
     for tag in tags:
+
+
         t = {}
         t['id'] = tag.id
         t['tag_name'] = tag.tag_name
@@ -324,12 +361,11 @@ def user_details_update_get(username):
 @app.route('/signup', methods=['POST'])
 def tag_signup_post():
 
-    username = request.form['username']
-    name = request.form['name']
-    ans = request.form['ans']
-    que = request.form['que']
-    password = request.form['password']
-
+    username = request.form['username'].strip()
+    name = request.form['name'].strip()
+    ans = request.form['ans'].strip()
+    que = request.form['que'].strip()
+    password = request.form['password'].strip()
     user = User(username = username, name=name, password=password, que=que, ans=ans)
     db.session.add(user)
     db.session.commit()
@@ -344,8 +380,8 @@ def tag_signup_post():
 
 @app.route('/signin', methods=['POST'])
 def tag_signin_post():
-    username = request.form['username']
-    password = request.form['password']
+    username = request.form['username'].strip()
+    password = request.form['password'].strip()
 
     count = User.query.filter_by(username=username, password=password).count()
     if count != 0:
@@ -360,10 +396,6 @@ def tag_signin_post():
 
 ##########################################################################
 
-with app.app_context():
-    db.create_all()
-
-
 def parser():
         while True:
             while not tag_list:
@@ -376,10 +408,11 @@ def parser():
             print("Tag selected : ",tag.tag_name,'\n')
             #----------------------------------------------------------------
             while True:
-                payload = {'q':tag.tag_name,'sources':'the-times-of-india', 'sortBy':'popularity', 'apiKey':'838b62c7059448b0ad8383231c8ac614'}
+                payload = {'q':tag.tag_name,'sources':'the-times-of-india', 'sortBy':'publishedAt', 'apiKey':'838b62c7059448b0ad8383231c8ac614'}
                 url = 'https://newsapi.org/v2/top-headlines'
                 print("\n\n",payload['sources'],"\n\n")
                 print(url)
+                time.sleep(1)
                 response = requests.get(url, params=payload)
                 print (response.url)
                 if response.status_code != 429:
@@ -397,10 +430,11 @@ def parser():
             adder(tag.tag_name, temp)
             #----------------------------------------------------------------
             while True:
-                payload = {'q':tag.tag_name,'sources':'the-hindu', 'sortBy':'popularity', 'apiKey':'838b62c7059448b0ad8383231c8ac614'}
+                payload = {'q':tag.tag_name,'sources':'the-hindu', 'sortBy':'publishedAt', 'apiKey':'838b62c7059448b0ad8383231c8ac614'}
                 url = 'https://newsapi.org/v2/top-headlines'
                 print("\n\n",payload['sources'],"\n\n")
                 print(url)
+                time.sleep(1)
                 response = requests.get(url, params=payload)
                 print (response.url)
                 if response.status_code != 429:
@@ -420,10 +454,11 @@ def parser():
             #----------------------------------------------------------------
             #----------------------------------------------------------------
             while True:
-                payload = {'q':tag.tag_name,'sources':'bbc-news', 'sortBy':'popularity', 'apiKey':'838b62c7059448b0ad8383231c8ac614'}
+                payload = {'q':tag.tag_name,'sources':'bbc-news', 'sortBy':'publishedAt', 'apiKey':'838b62c7059448b0ad8383231c8ac614'}
                 url = 'https://newsapi.org/v2/top-headlines'
                 print("\n\n",payload['sources'],"\n\n")
                 print(url)
+                time.sleep(1)
                 response = requests.get(url, params=payload)
                 print (response.url)
                 if response.status_code != 429:
@@ -441,34 +476,13 @@ def parser():
             adder(tag.tag_name, temp)
 
             #----------------------------------------------------------------
-            while True:
-                payload = {'q':tag.tag_name,'sources':'google-news-in', 'sortBy':'popularity', 'apiKey':'838b62c7059448b0ad8383231c8ac614'}
-                url = 'https://newsapi.org/v2/everything'
-                print("\n\n",payload['sources'],"\n\n")
-                print(url)
-                response = requests.get(url, params=payload)
-                print (response.url)
-                if response.status_code != 429:
-                    break
-                print("Status code is 429 so sleeping")
-                time.sleep(100)
-            if response.status_code != 200:
-                print("response.status_code",response.status_code)
-                temp = json.loads(response.text)
-                print(temp['code'],temp['message'])
-                continue
-            temp = json.loads(response.text)
-            print("Tag Name:",tag.tag_name,"status",temp['status'],"TotalResult:",temp['totalResults'])
-            print("towards adder")
-            adder(tag.tag_name, temp)
-
-            #-----------------------------------------------------------------
             #----------------------------------------------------------------
             while True:
-                payload = {'q':tag.tag_name,'sources':'bbc-news', 'sortBy':'popularity', 'apiKey':'838b62c7059448b0ad8383231c8ac614'}
-                url = 'https://newsapi.org/v2/everything'
-                print("\n\n",payload['sources'],"\n\n")
+                payload = {'q':tag.tag_name, 'sortBy':'publishedAt', 'apiKey':'838b62c7059448b0ad8383231c8ac614'}
+                url = 'https://newsapi.org/v2/top-headlines'
+                #print("\n\n",payload['sources'],"\n\n")
                 print(url)
+                time.sleep(1)
                 response = requests.get(url, params=payload)
                 print (response.url)
                 if response.status_code != 429:
@@ -485,13 +499,13 @@ def parser():
             print("towards adder")
             adder(tag.tag_name, temp)
 
-            #-----------------------------------------------------------------
             #----------------------------------------------------------------
             while True:
                 payload = {'q':tag.tag_name,'sources':'the-times-of-india', 'sortBy':'popularity', 'apiKey':'838b62c7059448b0ad8383231c8ac614'}
                 url = 'https://newsapi.org/v2/everything'
                 print("\n\n",payload['sources'],"\n\n")
                 print(url)
+                time.sleep(1)
                 response = requests.get(url, params=payload)
                 print (response.url)
                 if response.status_code != 429:
@@ -510,11 +524,13 @@ def parser():
 
             #-----------------------------------------------------------------
             #----------------------------------------------------------------
+
             while True:
                 payload = {'q':tag.tag_name,'sources':'the-hindu', 'sortBy':'popularity', 'apiKey':'838b62c7059448b0ad8383231c8ac614'}
                 url = 'https://newsapi.org/v2/everything'
                 print("\n\n",payload['sources'],"\n\n")
                 print(url)
+                time.sleep(1)
                 response = requests.get(url, params=payload)
                 print (response.url)
                 if response.status_code != 429:
@@ -534,11 +550,12 @@ def parser():
             #-----------------------------------------------------------------
             #-----------------------------------------------------------------
             while True:
+
                 payload = {'q':tag.tag_name, 'sortBy':'popularity', 'apiKey':'838b62c7059448b0ad8383231c8ac614'}
                 url = 'https://newsapi.org/v2/everything'
                 print("\n\n","everything","\n\n")
                 print(url)
-
+                time.sleep(1)
                 response = requests.get(url, params=payload)
 
                 print (response.url)
@@ -562,8 +579,23 @@ def parser():
 def adder(tagname, response):
     try:
         t = Tag.query.filter_by(tag_name = tagname).first()
+        """
+        if t.articles:
+            for article in articles:
+                db.session.delete(article)
+            t.articles[:] = []
+            db.session.commit()
+            """
+        t.clicks = 0
+        db.session.commit()
         if t:
+            count = 0
             for article in response['articles']:
+                if count > 10:
+                    break
+                else:
+                    count += 1
+
                 title = article['title']
                 body = article['description']
                 link = article['url']
@@ -592,6 +624,13 @@ def update_loop():
         list = []
         for tag in tags:
             list.append(tag.tag_name)
+            if tag.articles:
+                for article in articles:
+                    db.session.delete(article)
+                t.articles[:] = []
+                db.session.commit()
+
+
         tag_list.extend(list)
         time.sleep(60*60*24)
     return
@@ -599,6 +638,6 @@ def update_loop():
 Thread(target=parser).start()
 Thread(target=update_loop).start()
 
-db.create_all()
+
 if "__main__" == __name__:
-   app.run()
+        app.run()
