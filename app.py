@@ -83,6 +83,7 @@ else:
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
+db.create_all()
 
 
 tagger = db.Table('tagger',
