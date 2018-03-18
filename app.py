@@ -9,12 +9,50 @@ import time
 import datetime
 from threading import Thread
 
-#--- Variables
+#-----------------------------------------------
+#--- hosting related Variables
 username='user1'
 password='0233'
 host='localhost'
 db='p2'
 
+#--- PROGRAM Variables
+TAG_NAME_CHAR_LIMIT = 18
+USER_TAG_MAX_LIMIT = 5
+
+#----User loggin related
+USER_NAME_MAX_LIMIT = 20
+USER_NAME_MIN_LIMIT = 1
+
+USER_USERNAME__MAX_LIMIT = 20
+USER_USERNAME_MIN_LIMIT = 6
+
+USER_PASSWORD_MAX_LIMIT = 20
+USER_PASSWORD_MIN_LIMIT = 6
+
+USER_QUE_MAX_LIMIT = 50
+USER_QUE_MIN_LIMIT = 1
+
+USER_ANS_MAX_LIMIT = 20
+USER_ANS_MIN_LIMIT = 1
+
+
+
+tag_list = [ ] # tag_list for threads to featch news for
+
+#----News sources
+apiKey = '838b62c7059448b0ad8383231c8ac614'
+roots = [
+    {'sources':'the-times-of-india','sortBy':'publishedAt','e_or_h':'h'},
+    {'sources':'the-hindu','sortBy':'publishedAt','e_or_h':'h'},
+    {'sources':'bbc-news','sortBy':'publishedAt','e_or_h':'h'},
+    {'sources':'','sortBy':'publishedAt','e_or_h':'h'},
+    {'sources':'the-times-of-india','sortBy':'popularity','e_or_h':'e'},
+    {'sources':'the-hindu','sortBy':'popularity','e_or_h':'e'},
+    {'sources':'','sortBy':'popularity','e_or_h':'e'}
+]
+
+#-----------------------------------
 
 app = Flask(__name__)
 app.config['JSON_SORT_KEYS'] = False
@@ -49,6 +87,7 @@ class Tag(db.Model):
     tag_name = db.Column(db.Text, nullable=False,unique=True)
     clicks = db.Column(db.Integer)
     num_users = db.Column(db.Integer)
+    is_used = db.Column(db.Integer)
     articles = db.relationship('Article', secondary= tagger, backref= db.backref('tags',lazy=True))
     #users = db.relationship('User', secondary= connector, backref= db.backref('tags',lazy=True)
 
@@ -60,11 +99,6 @@ class User(db.Model):
     que = db.Column(db.Text, nullable=False)
     ans = db.Column(db.Text, nullable=False)
     tags = db.relationship('Tag', secondary= connector, backref= db.backref('users',lazy=True))
-
-class Log(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    user_id =  db.Column(db.Text, nullable=False)
-    article_id = db.Column(db.Text, nullable=False)
 
 class Article(db.Model):
 
@@ -85,26 +119,16 @@ def index_get():
     return render_template('index.html', articles=articles)
 
 
-@app.route('/read/<username>/<int:article_id>', methods=['GET'])
-def read_article_get(article_id,username):
-    user = User.query.filter_by(username = username).first()
-    article = Article.query.filter_by(id = article_id).first()
-    log = Log(user_id = user.id, article_id = article_id)
-    db.session.add(log)
-    db.session.commit()
-    return redirect(article.link)
-
-
 @app.route('/news/highlights/username/<username>', methods=['GET'])
 def highlights_get(username):
 
     user =  User.query.filter_by(username = username).first()
     response = []
     total_count = 0
-    if user.tags:
+    if user.tags != []:
         for tag in user.tags:
-            if tag.articles:
-                count=0
+            if tag.articles != []:
+                count=1
                 for article in tag.articles:
                     if count > 5:
                         break
@@ -120,32 +144,9 @@ def highlights_get(username):
                     response.append(res)
                     total_count+=1
 
-    return jsonify({'response' : response, 'count':str(count) })
+    return jsonify({'response' : response, 'count':str(total_count) })
 
 
-"""
-@app.route('/news/tagid/<int:id>', methods=['GET'])
-def tag_id_get(id):
-
-    tag =  Tag.query.filter_by(id = id).first()
-    response = []
-
-    if tag != None:
-        articles = tag.articles
-        if articles:
-            for article in articles:
-                res = {}
-                res['id'] = article.id
-                res['title'] = article.title
-                res['body'] = article.body
-                res['link'] = article.link
-                res['added'] = article.date_added
-                res['img_url'] = article.img_url
-                response.append(res)
-
-
-    return jsonify({'response' : response })
-"""
 
 @app.route('/news/tagname/<name>', methods=['GET'])
 def tag_name_get(name):
@@ -156,11 +157,12 @@ def tag_name_get(name):
     if tags:
 
         tags[0].clicks = tags[0].clicks + 1
+        tags[0].is_used = 1
         db.session.commit()
-    
+
         articles = tags[0].articles
         if articles:
-            count=0
+            count=1
             for article in articles:
                 if count > 20:
                     break
@@ -177,60 +179,81 @@ def tag_name_get(name):
                 total_count+=1
 
 
-    return jsonify({'response' : response ,'count':total_count})
+    return jsonify({'response' : response ,'count':total_count,'status':1})
 
-tag_list = [ ] # tag_list
+
+
 
 @app.route('/tag/add/<user_name>/<tag_name>', methods=['GET'])
 def tag_add_get(user_name, tag_name):
 
-    u = User.query.filter_by(username = user_name).first()
-    if len(u.tags) >= 5:
-        return jsonify({'status':0,'msg':'!! Maximum five tags can be added only, delete less prior tags first!!'})
-    tag_name = tag_name.title()
-    u = User.query.filter_by(username = user_name).first()
-    if tag_name.capitalize() in u.tags:
-        tag = Tag(tag_name = tag_name)
-    else:
+    tag_name = tag_name.strip().title()
+    if len(tag_name) > TAG_NAME_CHAR_LIMIT:
+        print("returning error msg")
+        return jsonify({'status':0,'msg':'!! Maximum '+ str(TAG_NAME_CHAR_LIMIT) +' charcter is allowed for tagname!!'})
 
-        user = User.query.filter_by(username=user_name).first()
-        t = Tag.query.filter_by(tag_name = tag_name).all()
+    u = User.query.filter_by(username = user_name).first()
+    print("length of user tags",len(u.tags))
+    if len(u.tags) >= USER_TAG_MAX_LIMIT:
+        return jsonify({'status':0,'msg':'!! Maximum '+str(USER_TAG_MAX_LIMIT)+' tags can be added, delete less prior tags first!!'})
+    print("after here")
+    u = User.query.filter_by(username=user_name).first()
+    t = Tag.query.filter_by(tag_name = tag_name).all()
 
-        if t:
-            tag = t[0]
-            print("word is already there")
+    if t != []:
+        tag = t[0]
+        print("word is already there")
+        if tag in u.tags:
+            res = {}
+            res["tag_name"] = tag.tag_name
+            res["id"]= tag.id
+            res['username']=u.username
+            return jsonify( {'added_tag': res,'status':1 } )
         else:
-            if is_bad_word(tag_name) == True:
-                print("return true")
-                return jsonify({'status':0,'msg':'!! Profanity word as tag name is not allowed !!'})
-            """
-            try:
-                result = requests.get("http://www.purgomalum.com/service/containsprofanity?text="+tag_name)
-                if result.status_code == 200:
-                    if result.text == 'true':
-                       return jsonify({'status':0,'msg':'!! Profanity word as tag name is not allowed !!'})
-            except:
-                pass
-            """
-            tag = Tag(tag_name = tag_name,clicks=1,num_users=0)
+            tag.num_users += 1
+            tag.users.append(u)
             db.session.add(tag)
             db.session.commit()
-            print("hi")
-            #parser(tag.tag_name)
-            #Thread(target=parser, args=([tag.tag_name]).start()
-            tag_list.insert(0,tag.tag_name)
-            #Thread(target=parser,args=(tag.tag_name,)).start()
-        tag.num_users =tag.num_users + 1
-        tag.users.append(user)
+
+            res = {}
+            res["tag_name"] = tag.tag_name
+            res["id"]= tag.id
+            res['username']=u.username
+            return jsonify( {'added_tag': res,'status':1 } )
+
+    else:
+        if is_bad_word(tag_name) == True:
+            print("return true")
+            return jsonify({'status':0,'msg':'!! Profanity word as tag name is not allowed !!'})
+        """
+        try:
+            result = requests.get("http://www.purgomalum.com/service/containsprofanity?text="+tag_name)
+            if result.status_code == 200:
+                if result.text == 'true':
+                   return jsonify({'status':0,'msg':'!! Profanity word as tag name is not allowed !!'})
+        except:
+            pass
+        """
+        tag = Tag(tag_name = tag_name,clicks=1,num_users=1,is_used=1)
+        db.session.add(tag)
+        db.session.commit()
+        print("hi")
+        #parser(tag.tag_name)
+        #Thread(target=parser, args=([tag.tag_name]).start()
+        tag_list.insert(0,tag.tag_name)
+        #Thread(target=parser,args=(tag.tag_name,)).start()
+
+        tag.users.append(u)
         db.session.add(tag)
         db.session.commit()
 
-    res = {}
-    res["tag_name"] = tag.tag_name
-    res["id"]= tag.id
-    res['username']=user.username
-    return jsonify( {'added_tag': res,'status':1 } )
+        res = {}
+        res["tag_name"] = tag.tag_name
+        res["id"]= tag.id
+        res['username']=u.username
+        return jsonify( {'added_tag': res,'status':1 } )
 
+    return jsonify({'status':0,'msg':'!! Not Added !!'})
 
 @app.route('/tag/delete/username/<username>/<tagname>', methods=['GET'])
 def tag_delete_username_get(username,tagname):
@@ -254,7 +277,7 @@ def tag_delete_username_get(username,tagname):
 
     db.session.commit()
 
-    return jsonify( {'deleted_tag':res } )
+    return jsonify( {'deleted_tag':res ,'status':1} )
 
 @app.route('/tag/delete/<tagname>', methods=['GET'])
 def tag_delete_get(tagname):
@@ -286,14 +309,20 @@ def tag_trending_get(top = 10):
 
     output = []
     for tag in tags:
-
-
         t = {}
         t['id'] = tag.id
         t['tag_name'] = tag.tag_name
         output.append(t)
 
     return jsonify( {'trending_tag': output } )
+
+
+@app.route('/tag/tagname/<tagname>', methods=['GET'])
+def tag_get(tagname):
+
+    count = Tag.query.filter_by(tag_name = tagname).count()
+
+    return jsonify( {'status': count } )
 
 
 
@@ -327,8 +356,10 @@ def autocomplete():
 def user_details_get(username):
 
     u = User.query.filter_by(username = username).all()
-    t = {}
-    if u:
+    if u == []:
+        return jsonify( {'user':[],'status':0})
+    else:
+        t = {}
         user = u[0]
         t['id'] = user.id
         t['username'] = user.username
@@ -337,23 +368,51 @@ def user_details_get(username):
         t['ans'] = user.ans
     #arr = []
     #arr.append(t)
-    return jsonify( {'user':t})
+    return jsonify( {'user':t,'status':1})
 
 
-@app.route('/user/update/username/<username>', methods=['GET'])
-def user_details_update_get(username):
+@app.route('/user/update', methods=['POST'])
+def user_details_update_get():
 
-    user = User.query.filter_by(username = username).first()
-    if 'password' in request.args:
-        user.password = request.args.get('password')
-    if 'name' in request.args:
-        user.name = request.args.get('name')
-    if 'que' in request.args:
-        user.que = request.args.get('que')
-    if 'ans' in request.args:
-        user.ans = request.args.get('ans')
+    user = User.query.filter_by(username = request.form['username']).first()
+    if 'password' in request.form:
+        password = request.form['password'].strip()
+        if len(password) < USER_PASSWORD_MIN_LIMIT:
+                   return jsonify( {'status': 0, 'msg':'!! Minimum length of $ Password $ should be '+str(USER_PASSWORD_MIN_LIMIT)+' character !!'})
+        if len(password) > USER_PASSWORD_MAX_LIMIT:
+                   return jsonify( {'status': 0, 'msg':'!! Maximum length of $ Password $ should be '+str(USER_PASSWORD_MAX_LIMIT)+' character !!'})
+
+        user.password = password
+
+    if 'name' in request.form:
+        name = request.args.form['name'].strip()
+        if len(name) < USER_NAME_MIN_LIMIT:
+                   return jsonify( {'status': 0, 'msg':'!! Minimum length of $ Name $ should be '+str(USER_NAME_MIN_LIMIT)+' character !!'})
+        if len(password) > USER_NAME_MAX_LIMIT:
+                   return jsonify( {'status': 0, 'msg':'!! Maximum length of $ Name $ should be '+str(USER_NAME_MAX_LIMIT)+' character !!'})
+
+        user.name = name
+
+    if 'que' in request.form:
+        que = request.args.form['que'].strip()
+        if len(que) < USER_QUE_MIN_LIMIT:
+                   return jsonify( {'status': 0, 'msg':'!! Minimum length of $ Question $ should be '+str(USER_QUE_MIN_LIMIT)+' character !!'})
+        if len(que) > USER_QUE_MAX_LIMIT:
+                   return jsonify( {'status': 0, 'msg':'!! Maximum length of $ Question $ should be '+str(USER_QUE_MAX_LIMIT)+' character !!'})
+
+        user.que = que
+
+    if 'ans' in request.form:
+        ans = request.args.form['ans'].strip()
+        if len(ans) < USER_ANS_MIN_LIMIT:
+                   return jsonify( {'status': 0, 'msg':'!! Minimum length of $ Answer $ should be '+str(USER_ANS_MIN_LIMIT)+' character !!'})
+        if len(password) > USER_ANS_MAX_LIMIT:
+                   return jsonify( {'status': 0, 'msg':'!! Maximum length of $ Answer $ should be '+str(USER_ANS_MAX_LIMIT)+' character !!'})
+
+        user.ans = ans
+
     db.session.commit()
-    return jsonify( {'status': '1'})
+    return jsonify( {'status': 1})
 
 #####################################################################################
 #sign in and SignOut and SignUp
@@ -366,33 +425,60 @@ def tag_signup_post():
     ans = request.form['ans'].strip()
     que = request.form['que'].strip()
     password = request.form['password'].strip()
+
+    c = User.query.filter_by(username=username).count()
+    if c != 0:
+        return jsonify( {'status': 0, 'msg':'!! Username $ '+username+' $ is already exist !!'})
+
+
+    if len(username) < USER_USERNAME_MIN_LIMIT:
+               return jsonify( {'status': 0, 'msg':'!! Minimum length of $ Username $ should be '+str(USER_USERNAME_MIN_LIMIT)+' character !!'})
+    if len(username) > USER_USERNAME__MAX_LIMIT:
+               return jsonify( {'status': 0, 'msg':'!! Maximum length of $ Username $ should be '+str(USER_USERNAME__MAX_LIMIT)+' character !!'})
+
+    if len(password) < USER_PASSWORD_MIN_LIMIT:
+               return jsonify( {'status': 0, 'msg':'!! Minimum length of $ Password $ should be '+str(USER_PASSWORD_MIN_LIMIT)+' character !!'})
+    if len(password) > USER_PASSWORD_MAX_LIMIT:
+               return jsonify( {'status': 0, 'msg':'!! Maximum length of $ Password $ should be '+str(USER_PASSWORD_MAX_LIMIT)+' character !!'})
+
+    if len(name) < USER_NAME_MIN_LIMIT:
+               return jsonify( {'status': 0, 'msg':'!! Minimum length of $ Name $ should be '+str(USER_NAME_MIN_LIMIT)+' character !!'})
+    if len(password) > USER_NAME_MAX_LIMIT:
+               return jsonify( {'status': 0, 'msg':'!! Maximum length of $ Name $ should be '+str(USER_NAME_MAX_LIMIT)+' character !!'})
+
+    if len(que) < USER_QUE_MIN_LIMIT:
+               return jsonify( {'status': 0, 'msg':'!! Minimum length of $ Question $ should be '+str(USER_QUE_MIN_LIMIT)+' character !!'})
+    if len(que) > USER_QUE_MAX_LIMIT:
+               return jsonify( {'status': 0, 'msg':'!! Maximum length of $ Question $ should be '+str(USER_QUE_MAX_LIMIT)+' character !!'})
+
+    if len(ans) < USER_ANS_MIN_LIMIT:
+               return jsonify( {'status': 0, 'msg':'!! Minimum length of $ Answer $ should be '+str(USER_ANS_MIN_LIMIT)+' character !!'})
+    if len(password) > USER_ANS_MAX_LIMIT:
+               return jsonify( {'status': 0, 'msg':'!! Maximum length of $ Answer $ should be '+str(USER_ANS_MAX_LIMIT)+' character !!'})
+
+
     user = User(username = username, name=name, password=password, que=que, ans=ans)
     db.session.add(user)
     db.session.commit()
 
-    t={'userid': user.id,
-        'username' : user.name,
-       }
-
-    return jsonify( {'result': t} )
+    return jsonify( {'status': 1} )
 
 
 
 @app.route('/signin', methods=['POST'])
 def tag_signin_post():
-    username = request.form['username'].strip()
-    password = request.form['password'].strip()
+    username = request.form['username']
+    password = request.form['password']
 
     count = User.query.filter_by(username=username, password=password).count()
     if count != 0:
                 user = User.query.filter_by(username=username,password=password).first()
-                t={'userid': user.id,
-                    'username' : user.username,
-                    'response':1
-                }
+                t={'status':1}
     else:
-        t = {'response':0}
+        t = {'status':0}
     return jsonify(t)
+
+
 
 ##########################################################################
 
@@ -405,176 +491,49 @@ def parser():
             tagname = tag_list.pop()
             print("insider Parser value of tagname:",tagname)
             tag = Tag.query.filter_by(tag_name=tagname).first()
+            tag.clicks = 0
+            if tag.is_used == 0:
+                print("\n\nreturn because tag is not used :\n",tag.tag_name)
+                continue
+            tag.is_used = 0
             print("Tag selected : ",tag.tag_name,'\n')
             #----------------------------------------------------------------
-            while True:
-                payload = {'q':tag.tag_name,'sources':'the-times-of-india', 'sortBy':'publishedAt', 'apiKey':'838b62c7059448b0ad8383231c8ac614'}
-                url = 'https://newsapi.org/v2/top-headlines'
-                print("\n\n",payload['sources'],"\n\n")
-                print(url)
-                time.sleep(1)
-                response = requests.get(url, params=payload)
-                print (response.url)
-                if response.status_code != 429:
-                    break
-                print("Status code is 429 so sleeping")
-                time.sleep(100)
-            if response.status_code != 200:
-                print("response.status_code",response.status_code)
+
+
+            for root in roots:
+
+                if root['e_or_h'] == 'e':
+                    url = 'https://newsapi.org/v2/top-headlines'
+                else:
+                    url = 'https://newsapi.org/v2/everything'
+
+                if root['sources'] == "":
+                    payload = {'q':tag.tag_name,'sortBy':root['sortBy'], 'apiKey':apiKey}
+                else:
+                    payload = {'q':tag.tag_name,'sources':root['sources'], 'sortBy':root['sortBy'], 'apiKey':apiKey}
+
+
+                while True:
+        
+                    print(url)
+                    time.sleep(1)
+                    response = requests.get(url, params=payload)
+                    print (response.url)
+                    if response.status_code != 429:
+                        break
+                    print("Status code is 429 so sleeping")
+                    time.sleep(100)
+                if response.status_code != 200:
+                    print("response.status_code",response.status_code)
+                    temp = json.loads(response.text)
+                    print(temp['code'],temp['message'])
+                    continue
                 temp = json.loads(response.text)
-                print(temp['code'],temp['message'])
-                continue
-            temp = json.loads(response.text)
-            print("Tag Name:",tag.tag_name,"status",temp['status'],"TotalResult:",temp['totalResults'])
-            print("towards adder")
-            adder(tag.tag_name, temp)
-            #----------------------------------------------------------------
-            while True:
-                payload = {'q':tag.tag_name,'sources':'the-hindu', 'sortBy':'publishedAt', 'apiKey':'838b62c7059448b0ad8383231c8ac614'}
-                url = 'https://newsapi.org/v2/top-headlines'
-                print("\n\n",payload['sources'],"\n\n")
-                print(url)
-                time.sleep(1)
-                response = requests.get(url, params=payload)
-                print (response.url)
-                if response.status_code != 429:
-                    break
-                print("Status code is 429 so sleeping")
-                time.sleep(100)
-            if response.status_code != 200:
-                print("response.status_code",response.status_code)
-                temp = json.loads(response.text)
-                print(temp['code'],temp['message'])
-                continue
-            temp = json.loads(response.text)
-            print("Tag Name:",tag.tag_name,"status",temp['status'],"TotalResult:",temp['totalResults'])
-            print("towards adder")
-            adder(tag.tag_name, temp)
+                print("Tag Name:",tag.tag_name,"status",temp['status'],"TotalResult:",temp['totalResults'])
+                print("towards adder")
+                adder(tag.tag_name, temp)
 
-            #----------------------------------------------------------------
-            #----------------------------------------------------------------
-            while True:
-                payload = {'q':tag.tag_name,'sources':'bbc-news', 'sortBy':'publishedAt', 'apiKey':'838b62c7059448b0ad8383231c8ac614'}
-                url = 'https://newsapi.org/v2/top-headlines'
-                print("\n\n",payload['sources'],"\n\n")
-                print(url)
-                time.sleep(1)
-                response = requests.get(url, params=payload)
-                print (response.url)
-                if response.status_code != 429:
-                    break
-                print("Status code is 429 so sleeping")
-                time.sleep(100)
-            if response.status_code != 200:
-                print("response.status_code",response.status_code)
-                temp = json.loads(response.text)
-                print(temp['code'],temp['message'])
-                continue
-            temp = json.loads(response.text)
-            print("Tag Name:",tag.tag_name,"status",temp['status'],"TotalResult:",temp['totalResults'])
-            print("towards adder")
-            adder(tag.tag_name, temp)
-
-            #----------------------------------------------------------------
-            #----------------------------------------------------------------
-            while True:
-                payload = {'q':tag.tag_name, 'sortBy':'publishedAt', 'apiKey':'838b62c7059448b0ad8383231c8ac614'}
-                url = 'https://newsapi.org/v2/top-headlines'
-                #print("\n\n",payload['sources'],"\n\n")
-                print(url)
-                time.sleep(1)
-                response = requests.get(url, params=payload)
-                print (response.url)
-                if response.status_code != 429:
-                    break
-                print("Status code is 429 so sleeping")
-                time.sleep(100)
-            if response.status_code != 200:
-                print("response.status_code",response.status_code)
-                temp = json.loads(response.text)
-                print(temp['code'],temp['message'])
-                continue
-            temp = json.loads(response.text)
-            print("Tag Name:",tag.tag_name,"status",temp['status'],"TotalResult:",temp['totalResults'])
-            print("towards adder")
-            adder(tag.tag_name, temp)
-
-            #----------------------------------------------------------------
-            while True:
-                payload = {'q':tag.tag_name,'sources':'the-times-of-india', 'sortBy':'popularity', 'apiKey':'838b62c7059448b0ad8383231c8ac614'}
-                url = 'https://newsapi.org/v2/everything'
-                print("\n\n",payload['sources'],"\n\n")
-                print(url)
-                time.sleep(1)
-                response = requests.get(url, params=payload)
-                print (response.url)
-                if response.status_code != 429:
-                    break
-                print("Status code is 429 so sleeping")
-                time.sleep(100)
-            if response.status_code != 200:
-                print("response.status_code",response.status_code)
-                temp = json.loads(response.text)
-                print(temp['code'],temp['message'])
-                continue
-            temp = json.loads(response.text)
-            print("Tag Name:",tag.tag_name,"status",temp['status'],"TotalResult:",temp['totalResults'])
-            print("towards adder")
-            adder(tag.tag_name, temp)
-
-            #-----------------------------------------------------------------
-            #----------------------------------------------------------------
-
-            while True:
-                payload = {'q':tag.tag_name,'sources':'the-hindu', 'sortBy':'popularity', 'apiKey':'838b62c7059448b0ad8383231c8ac614'}
-                url = 'https://newsapi.org/v2/everything'
-                print("\n\n",payload['sources'],"\n\n")
-                print(url)
-                time.sleep(1)
-                response = requests.get(url, params=payload)
-                print (response.url)
-                if response.status_code != 429:
-                    break
-                print("Status code is 429 so sleeping")
-                time.sleep(100)
-            if response.status_code != 200:
-                print("response.status_code",response.status_code)
-                temp = json.loads(response.text)
-                print(temp['code'],temp['message'])
-                continue
-            temp = json.loads(response.text)
-            print("Tag Name:",tag.tag_name,"status",temp['status'],"TotalResult:",temp['totalResults'])
-            print("towards adder")
-            adder(tag.tag_name, temp)
-
-            #-----------------------------------------------------------------
-            #-----------------------------------------------------------------
-            while True:
-
-                payload = {'q':tag.tag_name, 'sortBy':'popularity', 'apiKey':'838b62c7059448b0ad8383231c8ac614'}
-                url = 'https://newsapi.org/v2/everything'
-                print("\n\n","everything","\n\n")
-                print(url)
-                time.sleep(1)
-                response = requests.get(url, params=payload)
-
-                print (response.url)
-                if response.status_code != 429:
-                    break
-                print("Status code is 429 so sleeping")
-                time.sleep(100)
-            if response.status_code != 200:
-                print("response.status_code",response.status_code)
-                temp = json.loads(response.text)
-                print(temp['code'],temp['message'])
-                continue
-            temp = json.loads(response.text)
-            print("Tag Name:",tag.tag_name,"status",temp['status'],"TotalResult:",temp['totalResults'])
-            print("towards adder")
-            adder(tag.tag_name, temp)
-
-        return
-
+                #----------------------------------------------------------------
 
 def adder(tagname, response):
     try:
@@ -586,7 +545,7 @@ def adder(tagname, response):
             t.articles[:] = []
             db.session.commit()
             """
-        t.clicks = 0
+
         db.session.commit()
         if t:
             count = 0
@@ -620,19 +579,21 @@ def adder(tagname, response):
 def update_loop():
     while True:
         time.sleep(60*60*24)
+        #time.sleep(60)
         tags = Tag.query.all()
         list = []
         for tag in tags:
             list.append(tag.tag_name)
             if tag.articles:
-                for article in articles:
+                for article in tag.articles:
                     db.session.delete(article)
-                t.articles[:] = []
+                tag.articles[:] = []
                 db.session.commit()
 
 
         tag_list.extend(list)
-        time.sleep(60*60*24)
+        #time.sleep(60*60*24)
+        #time.sleep(60)
     return
 
 Thread(target=parser).start()
