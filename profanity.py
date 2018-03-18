@@ -8,6 +8,12 @@ def is_bad_word(word):
     else:
         return False
 
+def add_bad_word(word):
+    general_list.append(word)
+
+def remove_bad_word(word):
+    general_list.remove(word)
+
 """
     english_list=[
 2g1c

@@ -10,11 +10,16 @@ import datetime
 from threading import Thread
 
 #-----------------------------------------------
+TESTING = 0
+
+
 #--- hosting related Variables
 username='user1'
 password='0233'
 host='localhost'
-db='p2'
+db='p3'
+
+URI = 'postgresql://'+username+':'+password+'@'+host+'/'+db
 
 #--- PROGRAM Variables
 TAG_NAME_CHAR_LIMIT = 18
@@ -43,7 +48,7 @@ tag_list = [ ] # tag_list for threads to featch news for
 #----News sources
 apiKey = '838b62c7059448b0ad8383231c8ac614'
 roots = [
-    {'sources':'the-times-of-india','sortBy':'publishedAt','e_or_h':'h'},
+    {'sources':'the-times-of-india','sortBy':'publishedAt','e_or_h':'h'}, #
     {'sources':'the-hindu','sortBy':'publishedAt','e_or_h':'h'},
     {'sources':'bbc-news','sortBy':'publishedAt','e_or_h':'h'},
     {'sources':'','sortBy':'publishedAt','e_or_h':'h'},
@@ -51,6 +56,16 @@ roots = [
     {'sources':'the-hindu','sortBy':'popularity','e_or_h':'e'},
     {'sources':'','sortBy':'popularity','e_or_h':'e'}
 ]
+
+NEWS_RENEW_TIME = 24*60*60
+NEWS_FROM_EACH_SOURCE = 10
+WAIT_FOR_TAG_LIST = 5
+WAIT_BEFOR_EACH_API_REQUEST = 1
+WAIT_AFTER_429_ERRORCODE = 60
+
+
+NEWS_PER_TAGNAME_TO_USER = 20
+NEWS_PER_TAGNAME_TO_USER_HIGHLIGHTS = 5
 
 #-----------------------------------
 
@@ -63,7 +78,7 @@ if os.environ.get('ENV') == 'production':
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 else:
     app.debug = True
-    db_uri = 'postgresql://'+username+':'+password+'@'+host+'/'+db
+    db_uri = URI
     app.config['SQLALCHEMY_DATABASE_URI'] = db_uri
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -82,12 +97,37 @@ connector = db.Table('connector',
             db.Column('user_id', db.Integer, db.ForeignKey('user.id'))
 )
 
+
+class Article(db.Model):
+
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.Text  ,default="Title is not available")
+    body = db.Column(db.Text, default="Body is not available")
+    link = db.Column(db.Text, nullable=False,unique=True,default="https://www.grammarly.com/blog/articles/")
+    img_url = db.Column(db.Text,default="https://www.google.co.in/search?q=image+of+nature&newwindow=1&tbm=isch&source=iu&ictx=1&fir=K4ZYBhoGJrlOPM%253A%252CVQ9FGsDbUMuBBM%252C_&usg=__Wwf5MVVZ4c9GR0SO67BrQMr3pek%3D&sa=X&ved=0ahUKEwiVoYPr2-7ZAhVHQo8KHYuZBIUQ9QEIMDAD#imgrc=K4ZYBhoGJrlOPM:")
+    date_added = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+
+    #__table_args__ = (UniqueConstraint('link', name='link_id'),
+
+    #                 )
+
+"""
+
+class Comment(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.Text, nullable=False,unique=True)
+    body = db.Column(db.Integer)
+    star = db.Column(db.Integer)
+
+"""
+
 class Tag(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     tag_name = db.Column(db.Text, nullable=False,unique=True)
     clicks = db.Column(db.Integer)
     num_users = db.Column(db.Integer)
     is_used = db.Column(db.Integer)
+    #test = db.Column(db.Integer)
     articles = db.relationship('Article', secondary= tagger, backref= db.backref('tags',lazy=True))
     #users = db.relationship('User', secondary= connector, backref= db.backref('tags',lazy=True)
 
@@ -100,16 +140,9 @@ class User(db.Model):
     ans = db.Column(db.Text, nullable=False)
     tags = db.relationship('Tag', secondary= connector, backref= db.backref('users',lazy=True))
 
-class Article(db.Model):
 
-    id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.Text, nullable=False ,default="Title is not available")
-    body = db.Column(db.Text, nullable=False,default="Body is not available")
-    link = db.Column(db.Text, nullable=False,unique=True,default="https://www.grammarly.com/blog/articles/")
-    img_url = db.Column(db.Text, nullable=False,default="https://www.google.co.in/search?q=image+of+nature&newwindow=1&tbm=isch&source=iu&ictx=1&fir=K4ZYBhoGJrlOPM%253A%252CVQ9FGsDbUMuBBM%252C_&usg=__Wwf5MVVZ4c9GR0SO67BrQMr3pek%3D&sa=X&ved=0ahUKEwiVoYPr2-7ZAhVHQo8KHYuZBIUQ9QEIMDAD#imgrc=K4ZYBhoGJrlOPM:")
-    date_added = db.Column(db.DateTime, default=datetime.datetime.utcnow)
-    #__table_args__ = (UniqueConstraint('link', name='link_id'),
-    #                 )
+
+
 #########################################################################
 
 @app.route('/', methods=['GET'])
@@ -130,7 +163,7 @@ def highlights_get(username):
             if tag.articles != []:
                 count=1
                 for article in tag.articles:
-                    if count > 5:
+                    if count > NEWS_PER_TAGNAME_TO_USER_HIGHLIGHTS:
                         break
                     else:
                         count+=1
@@ -164,7 +197,7 @@ def tag_name_get(name):
         if articles:
             count=1
             for article in articles:
-                if count > 20:
+                if count > NEWS_PER_TAGNAME_TO_USER:
                     break
                 else:
                     count+=1
@@ -483,10 +516,11 @@ def tag_signin_post():
 ##########################################################################
 
 def parser():
+    try:
         while True:
             while not tag_list:
                 #print("tag_list is empty so sleeping")
-                time.sleep(1)
+                time.sleep(WAIT_FOR_TAG_LIST)
 
             tagname = tag_list.pop()
             print("insider Parser value of tagname:",tagname)
@@ -514,15 +548,16 @@ def parser():
 
 
                 while True:
-        
-                    print(url)
-                    time.sleep(1)
-                    response = requests.get(url, params=payload)
-                    print (response.url)
-                    if response.status_code != 429:
-                        break
-                    print("Status code is 429 so sleeping")
-                    time.sleep(100)
+                #    try:
+                        time.sleep(WAIT_BEFOR_EACH_API_REQUEST)
+                        response = requests.get(url, params=payload)
+                        print (response.url)
+                        if response.status_code != 429:
+                            break
+                        print("Status code is 429 so sleeping")
+                        time.sleep(WAIT_AFTER_429_ERRORCODE)
+                #    except:
+                #        break
                 if response.status_code != 200:
                     print("response.status_code",response.status_code)
                     temp = json.loads(response.text)
@@ -532,25 +567,29 @@ def parser():
                 print("Tag Name:",tag.tag_name,"status",temp['status'],"TotalResult:",temp['totalResults'])
                 print("towards adder")
                 adder(tag.tag_name, temp)
-
+    except:
+        return
                 #----------------------------------------------------------------
 
 def adder(tagname, response):
     try:
         t = Tag.query.filter_by(tag_name = tagname).first()
-        """
+        t.articles[:] = []
+        db.session.commit()
+
         if t.articles:
             for article in articles:
+                print("deleted article :" ,article.title)
                 db.session.delete(article)
-            t.articles[:] = []
+
             db.session.commit()
-            """
+
 
         db.session.commit()
         if t:
-            count = 0
+            count = 1
             for article in response['articles']:
-                if count > 10:
+                if count > NEWS_FROM_EACH_SOURCE:
                     break
                 else:
                     count += 1
@@ -563,6 +602,7 @@ def adder(tagname, response):
                 a = Article.query.filter_by(link=link).all()
                 if a:
                     a=a[0]
+                    print("setted previous article as same")
                 else:
                     a = Article(title= title, body= body, link = link, img_url = img_url)
                     db.session.add(a)
@@ -578,8 +618,8 @@ def adder(tagname, response):
 
 def update_loop():
     while True:
-        time.sleep(60*60*24)
-        #time.sleep(60)
+        if TESTING == 1:
+            time.sleep(9000000)
         tags = Tag.query.all()
         list = []
         for tag in tags:
@@ -592,7 +632,7 @@ def update_loop():
 
 
         tag_list.extend(list)
-        #time.sleep(60*60*24)
+        time.sleep(NEWS_RENEW_TIME)
         #time.sleep(60)
     return
 
