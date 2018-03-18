@@ -84,9 +84,6 @@ else:
 
 db = SQLAlchemy(app)
 
-with app.app_context():
-    db.create_all()
-
 
 
 tagger = db.Table('tagger',
@@ -146,6 +143,9 @@ class User(db.Model):
 
 
 
+
+with app.app_context():
+    db.create_all()
 
 #########################################################################
 
