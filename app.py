@@ -125,9 +125,9 @@ def highlights_get(username):
     user =  User.query.filter_by(username = username).first()
     response = []
     total_count = 0
-    if user.tags:
+    if user.tags != []:
         for tag in user.tags:
-            if tag.articles:
+            if tag.articles != []:
                 count=1
                 for article in tag.articles:
                     if count > 5:
@@ -144,7 +144,7 @@ def highlights_get(username):
                     response.append(res)
                     total_count+=1
 
-    return jsonify({'response' : response, 'count':str(count) })
+    return jsonify({'response' : response, 'count':str(total_count) })
 
 
 
@@ -189,12 +189,14 @@ def tag_add_get(user_name, tag_name):
 
     tag_name = tag_name.strip().title()
     if len(tag_name) > TAG_NAME_CHAR_LIMIT:
+        print("returning error msg")
         return jsonify({'status':0,'msg':'!! Maximum '+ str(TAG_NAME_CHAR_LIMIT) +' charcter is allowed for tagname!!'})
 
     u = User.query.filter_by(username = user_name).first()
-    if len(u.tags) >= USER_TAG_MAX_LIMIT:
+    print("length of user tags",len(u.tags))
+    if len(u.tags) > USER_TAG_MAX_LIMIT:
         return jsonify({'status':0,'msg':'!! Maximum '+str(USER_TAG_MAX_LIMIT)+' tags can be added, delete less prior tags first!!'})
-
+    print("after here")
     u = User.query.filter_by(username=user_name).first()
     t = Tag.query.filter_by(tag_name = tag_name).all()
 
@@ -369,7 +371,7 @@ def user_details_get(username):
     return jsonify( {'user':t,'status':1})
 
 
-@app.route('/user/update/username/<username>', methods=['GET'])
+@app.route('/user/update/username/<username>', methods=['POST'])
 def user_details_update_get(username):
 
     user = User.query.filter_by(username = username).first()
@@ -410,7 +412,7 @@ def user_details_update_get(username):
         user.ans = ans
 
     db.session.commit()
-    return jsonify( {'status': '1'})
+    return jsonify( {'status': 1})
 
 #####################################################################################
 #sign in and SignOut and SignUp
