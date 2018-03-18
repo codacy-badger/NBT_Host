@@ -1,0 +1,23 @@
+{
+  "name": "Phost-Git",
+  "scripts": {
+  },
+  "env": {
+    "ENV": {
+      "required": true
+    }
+  },
+  "formation": {
+    "web": {
+      "quantity": 1
+    }
+  },
+  "addons": [
+    "heroku-postgresql"
+  ],
+  "buildpacks": [
+    {
+      "url": "heroku/python"
+    }
+  ]
+}
