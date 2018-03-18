@@ -194,7 +194,7 @@ def tag_add_get(user_name, tag_name):
 
     u = User.query.filter_by(username = user_name).first()
     print("length of user tags",len(u.tags))
-    if len(u.tags) > USER_TAG_MAX_LIMIT:
+    if len(u.tags) >= USER_TAG_MAX_LIMIT:
         return jsonify({'status':0,'msg':'!! Maximum '+str(USER_TAG_MAX_LIMIT)+' tags can be added, delete less prior tags first!!'})
     print("after here")
     u = User.query.filter_by(username=user_name).first()
