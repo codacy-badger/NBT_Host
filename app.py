@@ -371,10 +371,10 @@ def user_details_get(username):
     return jsonify( {'user':t,'status':1})
 
 
-@app.route('/user/update/username/<username>', methods=['POST'])
-def user_details_update_get(username):
+@app.route('/user/update', methods=['POST'])
+def user_details_update_get():
 
-    user = User.query.filter_by(username = username).first()
+    user = User.query.filter_by(username = request.form['username']).first()
     if 'password' in request.form:
         password = request.form['password'].strip()
         if len(password) < USER_PASSWORD_MIN_LIMIT:
