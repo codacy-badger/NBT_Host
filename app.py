@@ -514,7 +514,7 @@ def parser():
 
 
                 while True:
-                    print("\n\n",payload['sources'],"\n\n")
+        
                     print(url)
                     time.sleep(1)
                     response = requests.get(url, params=payload)
