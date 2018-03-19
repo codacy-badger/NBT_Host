@@ -17,7 +17,7 @@ TESTING = 0
 username='user1'
 password='0233'
 host='localhost'
-db='p3'
+db='p5'
 
 URI = 'postgresql://'+username+':'+password+'@'+host+'/'+db
 
@@ -60,8 +60,8 @@ roots = [
 NEWS_RENEW_TIME = 24*60*60
 NEWS_FROM_EACH_SOURCE = 10
 WAIT_FOR_TAG_LIST = 5
-WAIT_BEFOR_EACH_API_REQUEST = 1
-WAIT_AFTER_429_ERRORCODE = 60
+WAIT_BEFOR_EACH_API_REQUEST = 2
+WAIT_AFTER_429_ERRORCODE = 120
 
 
 NEWS_PER_TAGNAME_TO_USER = 20
@@ -616,7 +616,7 @@ def adder(tagname, response):
     except:
         pass
     return
-
+TESTING = 0
 def update_loop():
     while True:
         if TESTING == 1:
