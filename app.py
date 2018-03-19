@@ -5,6 +5,8 @@ import requests
 import os
 import json
 import time
+import traceback
+import logging
 
 import datetime
 from threading import Thread
@@ -17,7 +19,7 @@ from threading import Thread
 username='user1'
 password='0233'
 host='localhost'
-db='p5'
+db='p6'
 
 URI = 'postgresql://'+username+':'+password+'@'+host+'/'+db
 
@@ -59,8 +61,8 @@ roots = [
 
 NEWS_RENEW_TIME = 24*60*60
 NEWS_FROM_EACH_SOURCE = 10
-WAIT_FOR_TAG_LIST = 5
-WAIT_BEFOR_EACH_API_REQUEST = 7
+WAIT_FOR_TAG_LIST = 1
+WAIT_BEFOR_EACH_API_REQUEST = 1
 WAIT_AFTER_429_ERRORCODE = 100
 
 
@@ -76,13 +78,12 @@ if os.environ.get('ENV') == 'production':
     app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
     app.config['DEBUG'] = False
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    TESTING = 0
 else:
     app.debug = True
     db_uri = URI
     app.config['SQLALCHEMY_DATABASE_URI'] = db_uri
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    TESTING = 1
+
 db = SQLAlchemy(app)
 
 
@@ -104,8 +105,8 @@ class Article(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.Text  ,default="Title is not available")
-    body = db.Column(db.Text, default="Body is not available")
-    link = db.Column(db.Text, nullable=False,unique=True,default="https://www.grammarly.com/blog/articles/")
+    body = db.Column(db.Text, default="Body is not available")  #unique=True
+    link = db.Column(db.Text, nullable=False,default="https://www.grammarly.com/blog/articles/")
     img_url = db.Column(db.Text,default="https://www.google.co.in/search?q=image+of+nature&newwindow=1&tbm=isch&source=iu&ictx=1&fir=K4ZYBhoGJrlOPM%253A%252CVQ9FGsDbUMuBBM%252C_&usg=__Wwf5MVVZ4c9GR0SO67BrQMr3pek%3D&sa=X&ved=0ahUKEwiVoYPr2-7ZAhVHQo8KHYuZBIUQ9QEIMDAD#imgrc=K4ZYBhoGJrlOPM:")
     date_added = db.Column(db.DateTime, default=datetime.datetime.utcnow)
 
@@ -365,14 +366,16 @@ def tag_get(tagname):
 @app.route('/tag/username/<username>', methods=['GET'])
 def tag_username_get(username='rnmpatel'):
 
-    user = User.query.filter_by(username = username).first()
-    tags = user.tags
     output = []
-    for tag in tags:
-        t = {}
-        t['id'] = tag.id
-        t['tag_name'] = tag.tag_name
-        output.append(t)
+    user = User.query.filter_by(username = username).all()
+    if user != []:
+        print("inside tag checking")
+        tags = user[0].tags
+        for tag in tags:
+            t = {}
+            t['id'] = tag.id
+            t['tag_name'] = tag.tag_name
+            output.append(t)
 
     return jsonify( {'user_tag': output } )
 
@@ -519,28 +522,27 @@ def tag_signin_post():
 ##########################################################################
 
 def parser():
-
+        print("Inside parser")
         while True:
             try:
-                while not tag_list:
+                while tag_list == []:
                     #print("tag_list is empty so sleeping")
                     time.sleep(WAIT_FOR_TAG_LIST)
 
                 tagname = tag_list.pop()
                 print("insider Parser value of tagname:",tagname)
                 tag = Tag.query.filter_by(tag_name=tagname).first()
-                tag.clicks = 0
                 if tag.is_used == 0:
                     print("\n\nreturn because tag is not used :\n",tag.tag_name)
                     continue
-                tag.is_used = 0
 
-                if t.articles:
-                    for article in t.articles:
+                if tag.articles:
+                    for article in tag.articles:
                         print("deleted article :" ,article.title)
                         db.session.delete(article)
+                        print("after delete")
+                tag.articles[:] = []
 
-                t.articles[:] = []
                 db.session.commit()
                 print("Tag selected : ",tag.tag_name,'\n')
                 #----------------------------------------------------------------
@@ -579,16 +581,24 @@ def parser():
                     print("Tag Name:",tag.tag_name,"status",temp['status'],"TotalResult:",temp['totalResults'])
                     print("towards adder")
                     adder(tag.tag_name, temp)
-            except:
+
+                tag.is_used = 0
+                tag.clicks = 0
+                print("tag click and is_usr reset")
+            except Exception as e:
+                print("error basic :",e.__doc__)
+                print("try catch pass in parser")
+                logging.error(traceback.format_exc())
                 pass
         return
                 #----------------------------------------------------------------
 
 def adder(tagname, response):
+    print("inside adder")
     try:
         t = Tag.query.filter_by(tag_name = tagname).first()
 
-        if t:
+        if t != []:
             count = 1
             for article in response['articles']:
                 if count > NEWS_FROM_EACH_SOURCE:
@@ -601,44 +611,43 @@ def adder(tagname, response):
                 link = article['url']
                 img_url = article['urlToImage']
 
-                a = Article.query.filter_by(link=link).all()
-                if a:
-                    a=a[0]
-                    print("setted previous article as same")
-                else:
-                    a = Article(title= title, body= body, link = link, img_url = img_url)
-                    db.session.add(a)
-                    db.session.commit()
+                #a = Article.query.filter_by(link=link).all()
+                a = Article(title= title, body= body, link = link, img_url = img_url)
+                db.session.add(a)
+                db.session.commit()
                 print('Tag Updated :',t.tag_name,'Article:',a.title)
                 t.articles.append(a)
                 db.session.commit()
         else:
             print("tag is not found")
-    except:
+
+    except Exception as e:
+        print("error basic :",e.__doc__)
+        print("try catch pass in parser")
+        logging.error(traceback.format_exc())
         pass
+
     return
+
 
 def update_loop():
+    print("Inside update_loop")
     while True:
-        time.sleep(NEWS_RENEW_TIME)
-        if TESTING == 1:                    #TO STOP UPDATING everyTIME IT IS DEPLOYED IN localhost
-            time.sleep(NEWS_RENEW_TIME)
+        #time.sleep(NEWS_RENEW_TIME)
+
         tags = Tag.query.all()
-        list = []
+        my_tag_list = []
         for tag in tags:
-            list.append(tag.tag_name)
-            if tag.articles:
-                for article in tag.articles:
-                    db.session.delete(article)
-                tag.articles[:] = []
-                db.session.commit()
+            my_tag_list.append(tag.tag_name)
+        print("list sent :",my_tag_list)
+        tag_list.extend(my_tag_list)
 
-
-        tag_list.extend(list)
-
-        #time.sleep(60)
+        time.sleep(60)
+        #time.sleep(NEWS_RENEW_TIME)
+    print("return from update_loop")
     return
 
+print("starting threads")
 Thread(target=parser).start()
 Thread(target=update_loop).start()
 
