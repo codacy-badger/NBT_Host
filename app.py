@@ -10,7 +10,7 @@ import datetime
 from threading import Thread
 
 #-----------------------------------------------
-TESTING = 0
+
 
 
 #--- hosting related Variables
@@ -76,12 +76,13 @@ if os.environ.get('ENV') == 'production':
     app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
     app.config['DEBUG'] = False
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    TESTING = 0
 else:
     app.debug = True
     db_uri = URI
     app.config['SQLALCHEMY_DATABASE_URI'] = db_uri
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
+    TESTING = 1
 db = SQLAlchemy(app)
 
 
@@ -616,11 +617,11 @@ def adder(tagname, response):
     except:
         pass
     return
-TESTING = 0
+
 def update_loop():
     while True:
-        if TESTING == 1:
-            time.sleep(9000000)
+        if TESTING == 1:                    #TO STOP UPDATING everyTIME IT IS DEPLOYED IN localhost
+            time.sleep(NEWS_RENEW_TIME)
         tags = Tag.query.all()
         list = []
         for tag in tags:
