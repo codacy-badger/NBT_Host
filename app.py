@@ -642,8 +642,8 @@ def update_loop():
         print("list sent :",my_tag_list)
         tag_list.extend(my_tag_list)
 
-        time.sleep(60)
-        #time.sleep(NEWS_RENEW_TIME)
+        #time.sleep()
+        time.sleep(NEWS_RENEW_TIME)
     print("return from update_loop")
     return
 
