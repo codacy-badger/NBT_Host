@@ -60,8 +60,8 @@ roots = [
 NEWS_RENEW_TIME = 24*60*60
 NEWS_FROM_EACH_SOURCE = 10
 WAIT_FOR_TAG_LIST = 5
-WAIT_BEFOR_EACH_API_REQUEST = 2
-WAIT_AFTER_429_ERRORCODE = 120
+WAIT_BEFOR_EACH_API_REQUEST = 1
+WAIT_AFTER_429_ERRORCODE = 90
 
 
 NEWS_PER_TAGNAME_TO_USER = 20
@@ -620,6 +620,7 @@ def adder(tagname, response):
 
 def update_loop():
     while True:
+        time.sleep(NEWS_RENEW_TIME)
         if TESTING == 1:                    #TO STOP UPDATING everyTIME IT IS DEPLOYED IN localhost
             time.sleep(NEWS_RENEW_TIME)
         tags = Tag.query.all()
@@ -634,7 +635,7 @@ def update_loop():
 
 
         tag_list.extend(list)
-        time.sleep(NEWS_RENEW_TIME)
+
         #time.sleep(60)
     return
 
