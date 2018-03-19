@@ -518,76 +518,75 @@ def tag_signin_post():
 ##########################################################################
 
 def parser():
-    try:
+
         while True:
-            while not tag_list:
-                #print("tag_list is empty so sleeping")
-                time.sleep(WAIT_FOR_TAG_LIST)
+            try:
+                while not tag_list:
+                    #print("tag_list is empty so sleeping")
+                    time.sleep(WAIT_FOR_TAG_LIST)
 
-            tagname = tag_list.pop()
-            print("insider Parser value of tagname:",tagname)
-            tag = Tag.query.filter_by(tag_name=tagname).first()
-            tag.clicks = 0
-            if tag.is_used == 0:
-                print("\n\nreturn because tag is not used :\n",tag.tag_name)
-                continue
-            tag.is_used = 0
-            print("Tag selected : ",tag.tag_name,'\n')
-            #----------------------------------------------------------------
-
-
-            for root in roots:
-
-                if root['e_or_h'] == 'e':
-                    url = 'https://newsapi.org/v2/top-headlines'
-                else:
-                    url = 'https://newsapi.org/v2/everything'
-
-                if root['sources'] == "":
-                    payload = {'q':tag.tag_name,'sortBy':root['sortBy'], 'apiKey':apiKey}
-                else:
-                    payload = {'q':tag.tag_name,'sources':root['sources'], 'sortBy':root['sortBy'], 'apiKey':apiKey}
-
-
-                while True:
-                #    try:
-                        time.sleep(WAIT_BEFOR_EACH_API_REQUEST)
-                        response = requests.get(url, params=payload)
-                        print (response.url)
-                        if response.status_code != 429:
-                            break
-                        print("Status code is 429 so sleeping")
-                        time.sleep(WAIT_AFTER_429_ERRORCODE)
-                #    except:
-                #        break
-                if response.status_code != 200:
-                    print("response.status_code",response.status_code)
-                    temp = json.loads(response.text)
-                    print(temp['code'],temp['message'])
+                tagname = tag_list.pop()
+                print("insider Parser value of tagname:",tagname)
+                tag = Tag.query.filter_by(tag_name=tagname).first()
+                tag.clicks = 0
+                if tag.is_used == 0:
+                    print("\n\nreturn because tag is not used :\n",tag.tag_name)
                     continue
-                temp = json.loads(response.text)
-                print("Tag Name:",tag.tag_name,"status",temp['status'],"TotalResult:",temp['totalResults'])
-                print("towards adder")
-                adder(tag.tag_name, temp)
-    except:
+                tag.is_used = 0
+                print("Tag selected : ",tag.tag_name,'\n')
+                #----------------------------------------------------------------
+
+
+                for root in roots:
+
+                    if root['e_or_h'] == 'e':
+                        url = 'https://newsapi.org/v2/top-headlines'
+                    else:
+                        url = 'https://newsapi.org/v2/everything'
+
+                    if root['sources'] == "":
+                        payload = {'q':tag.tag_name,'sortBy':root['sortBy'], 'apiKey':apiKey}
+                    else:
+                        payload = {'q':tag.tag_name,'sources':root['sources'], 'sortBy':root['sortBy'], 'apiKey':apiKey}
+
+
+                    while True:
+                    #    try:
+                            time.sleep(WAIT_BEFOR_EACH_API_REQUEST)
+                            response = requests.get(url, params=payload)
+                            print (response.url)
+                            if response.status_code != 429:
+                                break
+                            print("Status code is 429 so sleeping")
+                            time.sleep(WAIT_AFTER_429_ERRORCODE)
+                    #    except:
+                    #        break
+                    if response.status_code != 200:
+                        print("response.status_code",response.status_code)
+                        temp = json.loads(response.text)
+                        print(temp['code'],temp['message'])
+                        continue
+                    temp = json.loads(response.text)
+                    print("Tag Name:",tag.tag_name,"status",temp['status'],"TotalResult:",temp['totalResults'])
+                    print("towards adder")
+                    adder(tag.tag_name, temp)
+            except:
+                pass
         return
                 #----------------------------------------------------------------
 
 def adder(tagname, response):
     try:
         t = Tag.query.filter_by(tag_name = tagname).first()
-        t.articles[:] = []
-        db.session.commit()
 
         if t.articles:
-            for article in articles:
+            for article in t.articles:
                 print("deleted article :" ,article.title)
                 db.session.delete(article)
 
-            db.session.commit()
-
-
+        t.articles[:] = []
         db.session.commit()
+
         if t:
             count = 1
             for article in response['articles']:
