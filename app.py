@@ -534,6 +534,14 @@ def parser():
                     print("\n\nreturn because tag is not used :\n",tag.tag_name)
                     continue
                 tag.is_used = 0
+
+                if t.articles:
+                    for article in t.articles:
+                        print("deleted article :" ,article.title)
+                        db.session.delete(article)
+
+                t.articles[:] = []
+                db.session.commit()
                 print("Tag selected : ",tag.tag_name,'\n')
                 #----------------------------------------------------------------
 
@@ -579,14 +587,6 @@ def parser():
 def adder(tagname, response):
     try:
         t = Tag.query.filter_by(tag_name = tagname).first()
-
-        if t.articles:
-            for article in t.articles:
-                print("deleted article :" ,article.title)
-                db.session.delete(article)
-
-        t.articles[:] = []
-        db.session.commit()
 
         if t:
             count = 1
