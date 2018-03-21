@@ -58,3 +58,8 @@ docs/_build/
 
 # PyBuilder
 target/
+
+Phost-venv/bin/
+phost-venv/
+
+Phost-venv/share/python-wheels/
