@@ -18,8 +18,8 @@ crone jobs linux
 ------------------------------------------------------
 
 api key for timesindia : 838b62c7059448b0ad8383231c8ac614
-
-https://newsapi.org/v2/everything?q=Science&%27sortBy=popularity&apiKey=838b62c7059448b0ad8383231c8ac614
+popularity
+https://newsapi.org/v2/everything?q=+Narendra%20Modi&%27sortBy=relevancy,popularity&apiKey=838b62c7059448b0ad8383231c8ac614&language=en&sources=bbc-news,the-verge,the-times-of-india,the-hindu
 
 -------------------------------------------------
 
