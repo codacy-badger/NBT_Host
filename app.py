@@ -1,5 +1,6 @@
 from flask import Flask,abort,jsonify, redirect, request, render_template, session, url_for
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import or_,desc
 from profanity import is_bad_word
 import requests
 import os
@@ -7,6 +8,8 @@ import json
 import time
 import traceback
 import logging
+from newsapi import NewsApiClient
+
 
 import datetime
 from threading import Thread
@@ -25,7 +28,7 @@ URI = 'postgresql://'+username+':'+password+'@'+host+'/'+db
 
 #--- PROGRAM Variables
 TAG_NAME_CHAR_LIMIT = 18
-USER_TAG_MAX_LIMIT = 5
+USER_TAG_MAX_LIMIT = 8
 
 #----User loggin related
 USER_NAME_MAX_LIMIT = 20
@@ -47,32 +50,55 @@ USER_ANS_MIN_LIMIT = 1
 
 tag_list = [ ] # tag_list for threads to featch news for
 
+
+
+
+if os.environ.get('ENV') != 'production':
+    # local host
+
+    NEWS_RENEW_TIME = 24*60*60
+    WAIT_FOR_TAG_LIST = 1
+    WAIT_BEFORE_EACH_API_REQUEST = 0
+    WAIT_AFTER_429_ERRORCODE = 30
+
+    ADDER_EACH_API_REQUEST = 0.10
+    ADDER_429 = 10
+
+    NEWS_PER_TAGNAME_TO_USER = 30
+    NEWS_PER_TAGNAME_TO_USER_HIGHLIGHTS = 3
+
+else:
+
+    # production
+    NEWS_RENEW_TIME = 24*60*60
+    WAIT_FOR_TAG_LIST = 1
+    WAIT_BEFORE_EACH_API_REQUEST = 0.10
+    WAIT_AFTER_429_ERRORCODE = 30
+
+    ADDER_EACH_API_REQUEST = 0.10
+    ADDER_429 = 10
+
+    NEWS_PER_TAGNAME_TO_USER = 30
+    NEWS_PER_TAGNAME_TO_USER_HIGHLIGHTS = 3
+
+#-------------------------------------------------------------
+#,the-hindu,the-verge,bbc-news
 #----News sources
 apiKey = '838b62c7059448b0ad8383231c8ac614'
 roots = [
-    {'sources':'the-times-of-india','sortBy':'publishedAt','e_or_h':'h'}, #
-    {'sources':'the-hindu','sortBy':'publishedAt','e_or_h':'h'},
-    {'sources':'bbc-news','sortBy':'publishedAt','e_or_h':'h'},
-    {'sources':'','sortBy':'publishedAt','e_or_h':'h'},
-    {'sources':'the-times-of-india','sortBy':'popularity','e_or_h':'e'},
-    {'sources':'the-hindu','sortBy':'popularity','e_or_h':'e'},
-    {'sources':'','sortBy':'popularity','e_or_h':'e'}
-]
-
-NEWS_RENEW_TIME = 24*60*60
-NEWS_FROM_EACH_SOURCE = 10
-WAIT_FOR_TAG_LIST = 1
-WAIT_BEFOR_EACH_API_REQUEST = 1
-WAIT_AFTER_429_ERRORCODE = 100
-
-
-NEWS_PER_TAGNAME_TO_USER = 20
-NEWS_PER_TAGNAME_TO_USER_HIGHLIGHTS = 5
+    #{'sources':'the-times-of-india','sortBy':'popularity','e_or_h':'h','pageSize':str(NEWS_PER_TAGNAME_TO_USER+1)}, #
+    {'sources':'the-times-of-india,the-hindu,the-verge,bbc-news','sortBy':'popularity','e_or_h':'e','pageSize':str(NEWS_PER_TAGNAME_TO_USER+1)},
+    {'sources':'', 'sortBy':'popularity','e_or_h':'e','pageSize':str(NEWS_PER_TAGNAME_TO_USER+1)}
+    ]
 
 #-----------------------------------
 
 app = Flask(__name__)
 app.config['JSON_SORT_KEYS'] = False
+
+newsapi = NewsApiClient(api_key=apiKey)
+
+
 
 if os.environ.get('ENV') == 'production':
     app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
@@ -149,6 +175,11 @@ db.create_all()
 
 #########################################################################
 
+@app.before_first_request
+def initialize():
+    print ("Called only once, when the first request comes in")
+
+
 @app.route('/', methods=['GET'])
 def index_get():
 
@@ -185,14 +216,18 @@ def highlights_get(username):
 
 
 
-@app.route('/news/tagname/<name>', methods=['GET'])
-def tag_name_get(name):
+@app.route('/news/tagname/<tag_name>', methods=['GET'])
+def tag_name_get(tag_name):
 
-    tags =  Tag.query.filter_by(tag_name = name).all()
+    tags =  Tag.query.filter_by(tag_name = tag_name).all()
     response = []
     total_count = 0
     if tags:
-
+        """
+        if len(tags[0].articles) == 0:
+            if tag_name not in tag_list:
+                    tag_list.insert(0,tag_name)
+        """
         tags[0].clicks = tags[0].clicks + 1
         tags[0].is_used = 1
         db.session.commit()
@@ -216,6 +251,7 @@ def tag_name_get(name):
                 total_count+=1
 
 
+
     return jsonify({'response' : response ,'count':total_count,'status':1})
 
 
@@ -230,10 +266,10 @@ def tag_add_get(user_name, tag_name):
         return jsonify({'status':0,'msg':'!! Maximum '+ str(TAG_NAME_CHAR_LIMIT) +' charcter is allowed for tagname!!'})
 
     u = User.query.filter_by(username = user_name).first()
-    print("length of user tags",len(u.tags))
+
     if len(u.tags) >= USER_TAG_MAX_LIMIT:
         return jsonify({'status':0,'msg':'!! Maximum '+str(USER_TAG_MAX_LIMIT)+' tags can be added, delete less prior tags first!!'})
-    print("after here")
+
     u = User.query.filter_by(username=user_name).first()
     t = Tag.query.filter_by(tag_name = tag_name).all()
 
@@ -522,6 +558,8 @@ def tag_signin_post():
 ##########################################################################
 
 def parser():
+        global WAIT_AFTER_429_ERRORCODE,  WAIT_BEFORE_EACH_API_REQUEST,  WAIT_FOR_TAG_LIST
+        global ADDER_429,  ADDER_EACH_API_REQUEST
         print("Inside parser")
         while True:
             try:
@@ -530,48 +568,55 @@ def parser():
                     time.sleep(WAIT_FOR_TAG_LIST)
 
                 tagname = tag_list.pop()
-                print("insider Parser value of tagname:",tagname)
+
                 tag = Tag.query.filter_by(tag_name=tagname).first()
                 if tag.is_used == 0:
                     print("\n\nreturn because tag is not used :\n",tag.tag_name)
                     continue
 
-                if tag.articles:
-                    for article in tag.articles:
-                        print("deleted article :" ,article.title)
+                for article in tag.articles:
+                        print("Deleted article : Tag Name :",tagname ,article.title)
                         db.session.delete(article)
-                        print("after delete")
-                tag.articles[:] = []
 
+
+                tag.articles[:] = []
                 db.session.commit()
-                print("Tag selected : ",tag.tag_name,'\n')
+
                 #----------------------------------------------------------------
 
-
+                #total_count = len(tag.articles)
                 for root in roots:
+                    print("Length of articles in tag is :",tagname,len(tag.articles))
+                    if len(tag.articles) >= int((NEWS_PER_TAGNAME_TO_USER*3/4)):
+                        break
 
-                    if root['e_or_h'] == 'e':
+                    if root['e_or_h'] == 'h':
                         url = 'https://newsapi.org/v2/top-headlines'
                     else:
                         url = 'https://newsapi.org/v2/everything'
 
                     if root['sources'] == "":
-                        payload = {'q':tag.tag_name,'sortBy':root['sortBy'], 'apiKey':apiKey}
+                        payload = {'q':tag.tag_name,'sortBy':root['sortBy'], 'apiKey':apiKey, 'language':'en','pageSize':root['pageSize']}
                     else:
-                        payload = {'q':tag.tag_name,'sources':root['sources'], 'sortBy':root['sortBy'], 'apiKey':apiKey}
+                        payload = {'q':tag.tag_name, 'pageSize':root['pageSize'], 'sources':root['sources'], 'language':'en', 'sortBy':root['sortBy'], 'apiKey':apiKey}
 
-
+                    no_429 = 0
                     while True:
-                    #    try:
-                            time.sleep(WAIT_BEFOR_EACH_API_REQUEST)
-                            response = requests.get(url, params=payload)
+
+                            time.sleep(WAIT_BEFORE_EACH_API_REQUEST)
+                            response = requests.get(url, params=payload,timeout=20)
                             print (response.url)
                             if response.status_code != 429:
                                 break
                             print("Status code is 429 so sleeping")
+                            if no_429 == 0:
+                                WAIT_BEFORE_EACH_API_REQUEST += ADDER_EACH_API_REQUEST # 0.25
+                                print('\n\n\nmodified each request wait :', WAIT_BEFORE_EACH_API_REQUEST)
+                            if no_429 > 1:
+                                WAIT_AFTER_429_ERRORCODE += ADDER_429  # 10
+                                print("\n\n\nmodified 429 :",WAIT_AFTER_429_ERRORCODE)
                             time.sleep(WAIT_AFTER_429_ERRORCODE)
-                    #    except:
-                    #        break
+
                     if response.status_code != 200:
                         print("response.status_code",response.status_code)
                         temp = json.loads(response.text)
@@ -582,10 +627,15 @@ def parser():
                     print("towards adder")
                     adder(tag.tag_name, temp)
 
+                #------------------------------------------------------------------
                 tag.is_used = 0
                 tag.clicks = 0
+                db.session.commit()
                 print("tag click and is_usr reset")
             except Exception as e:
+                tag.is_used = 0
+                tag.clicks = 0
+                db.session.commit()
                 print("error basic :",e.__doc__)
                 print("try catch pass in parser")
                 logging.error(traceback.format_exc())
@@ -594,6 +644,7 @@ def parser():
                 #----------------------------------------------------------------
 
 def adder(tagname, response):
+    global NEWS_PER_TAGNAME_TO_USER
     print("inside adder")
     try:
         t = Tag.query.filter_by(tag_name = tagname).first()
@@ -601,7 +652,7 @@ def adder(tagname, response):
         if t != []:
             count = 1
             for article in response['articles']:
-                if count > NEWS_FROM_EACH_SOURCE:
+                if count > NEWS_PER_TAGNAME_TO_USER:
                     break
                 else:
                     count += 1
@@ -611,13 +662,21 @@ def adder(tagname, response):
                 link = article['url']
                 img_url = article['urlToImage']
 
-                #a = Article.query.filter_by(link=link).all()
-                a = Article(title= title, body= body, link = link, img_url = img_url)
-                db.session.add(a)
-                db.session.commit()
+                yes = 0
+                articles = Article.query.filter(or_(Article.link == link,Article.title == title)).all()
+                for article in articles:
+                    if article in t.articles:
+                        a = article
+                        yes = 1
+                        break
+                if yes == 0:
+                    a = Article(title= title, body= body, link = link, img_url = img_url)
+                    db.session.add(a)
+                    t.articles.append(a)
+                    db.session.commit()
+
                 print('Tag Updated :',t.tag_name,'Article:',a.title)
-                t.articles.append(a)
-                db.session.commit()
+
         else:
             print("tag is not found")
 
@@ -632,8 +691,12 @@ def adder(tagname, response):
 
 def update_loop():
     print("Inside update_loop")
+
     while True:
-        #time.sleep(NEWS_RENEW_TIME)
+
+        if os.environ.get('ENV') != 'production':
+#            time.sleep(NEWS_RENEW_TIME)
+            pass
 
         tags = Tag.query.all()
         my_tag_list = []
@@ -653,4 +716,4 @@ Thread(target=update_loop).start()
 
 
 if "__main__" == __name__:
-        app.run()
+        app.run(use_reloader=False)

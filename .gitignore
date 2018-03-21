@@ -8,7 +8,7 @@ __pycache__/
 
 # Distribution / packaging
 .Python
-P-host-vene/
+phost-vene/
 env/
 build/
 develop-eggs/
@@ -58,3 +58,8 @@ docs/_build/
 
 # PyBuilder
 target/
+
+Phost-venv/bin/
+phost-venv/
+
+Phost-venv/share/python-wheels/
