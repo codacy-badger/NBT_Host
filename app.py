@@ -22,7 +22,7 @@ from threading import Thread
 username='user1'
 password='0233'
 host='localhost'
-db='p6'
+db='p7'
 
 URI = 'postgresql://'+username+':'+password+'@'+host+'/'+db
 
@@ -72,7 +72,7 @@ else:
     # production
     NEWS_RENEW_TIME = 24*60*60
     WAIT_FOR_TAG_LIST = 1
-    WAIT_BEFORE_EACH_API_REQUEST = 0.10
+    WAIT_BEFORE_EACH_API_REQUEST = 0
     WAIT_AFTER_429_ERRORCODE = 30
 
     ADDER_EACH_API_REQUEST = 0.10
@@ -130,48 +130,47 @@ connector = db.Table('connector',
 class Article(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.Text  ,default="Title is not available")
-    body = db.Column(db.Text, default="Body is not available")  #unique=True
-    link = db.Column(db.Text, nullable=False,default="https://www.grammarly.com/blog/articles/")
-    img_url = db.Column(db.Text,default="https://www.google.co.in/search?q=image+of+nature&newwindow=1&tbm=isch&source=iu&ictx=1&fir=K4ZYBhoGJrlOPM%253A%252CVQ9FGsDbUMuBBM%252C_&usg=__Wwf5MVVZ4c9GR0SO67BrQMr3pek%3D&sa=X&ved=0ahUKEwiVoYPr2-7ZAhVHQo8KHYuZBIUQ9QEIMDAD#imgrc=K4ZYBhoGJrlOPM:")
-    date_added = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    title = db.Column(db.Text)
+    body = db.Column(db.Text)  #unique=True
+    link = db.Column(db.Text)
+    img_url = db.Column(db.Text)
+    date_added = db.Column(db.DateTime)
 
     #__table_args__ = (UniqueConstraint('link', name='link_id'),
 
     #                 )
 
-"""
+
 
 class Comment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.Text, nullable=False,unique=True)
+    title = db.Column(db.Text)
     body = db.Column(db.Integer)
     star = db.Column(db.Integer)
+    comment_id = db.Column(db.Integer, db.ForeignKey('user.id'))
 
-"""
 
 class Tag(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    tag_name = db.Column(db.Text, nullable=False,unique=True)
+    tag_name = db.Column(db.Text)
     clicks = db.Column(db.Integer)
     num_users = db.Column(db.Integer)
     is_used = db.Column(db.Integer)
-    #test = db.Column(db.Integer)
     articles = db.relationship('Article', secondary= tagger, backref= db.backref('tags',lazy=True))
     #users = db.relationship('User', secondary= connector, backref= db.backref('tags',lazy=True)
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    name =  db.Column(db.Text, nullable=False)
-    username = db.Column(db.Text, nullable=False)
-    password = db.Column(db.Text, nullable=False)
-    que = db.Column(db.Text, nullable=False)
-    ans = db.Column(db.Text, nullable=False)
+    name =  db.Column(db.Text)
+    username = db.Column(db.Text)
+    password = db.Column(db.Text)
+    que = db.Column(db.Text)
+    ans = db.Column(db.Text)
     tags = db.relationship('Tag', secondary= connector, backref= db.backref('users',lazy=True))
+    comments = db.relationship('Comment',backref='user')
 
 
-
-db.create_all()
+#db.create_all()
 
 #########################################################################
 
@@ -670,7 +669,7 @@ def adder(tagname, response):
                         yes = 1
                         break
                 if yes == 0:
-                    a = Article(title= title, body= body, link = link, img_url = img_url)
+                    a = Article(title= title, body= body, link = link, img_url = img_url,date_added=datetime.datetime.utcnow)
                     db.session.add(a)
                     t.articles.append(a)
                     db.session.commit()
