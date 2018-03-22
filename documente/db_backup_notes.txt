@@ -3,3 +3,4 @@
 
 *    heroku pg:backups:schedule DATABASE_URL --at '02:00 Indian/Reunion' --app p-host
 
+/manage.py db stamp head

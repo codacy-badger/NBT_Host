@@ -1,0 +1,419 @@
+
+
+
+
+  {% extends "base.html" %}
+
+  {% block head_css %}
+  <!-- Latest compiled and minified CSS bootstrap-->
+  <link rel="stylesheet" href="{{url_for('static', filename='my_css.css')}}"></link>
+  {% endblock %}
+
+      {% block body_head %}
+      <div class="container" style="margin-top:15px">
+        <div class="row">
+        <div class="col-md-10 col-md-offset-1">
+      <nav class="navbar navbar-default" style="padding:15px">
+
+      <div class="navbar-header">
+      </div>
+
+          <button class="btn btn-lg" style="width:100%;margin:auto"> <strong> Admin</strong> </button>
+
+      </nav>
+    </div>
+  </div>
+</div>
+  {% endblock %}
+
+
+
+{% block body_core %}
+<div class="container">
+  <div class="row">
+    <nav class="navbar navbar-default" style="padding:15px">
+
+    <div class="navbar-header">
+    </div>
+        <a class="btn btn-default" href="/?com=overview">Overview</a>
+        <a class="btn btn-default" href="/?com=user">User</a>
+        <a class="btn btn-default" href="/?com=tag">Tag</a>
+        <a class="btn btn-default" href="/?com=comment">Comment</a>
+        <a class="btn btn-default" href="/?com=tag_table">Table Tag</a>
+        <a class="btn btn-default" href="/?com=user_table">Table User</a>
+        <a class="btn btn-default" href="/?com=comment_table">Table Comment</a>
+          <a class="btn btn-default" href="/?com=record_table">Table Record</a>
+    </nav>
+    <div class="well">
+      <h2 style="padding:5px;margin:5px;display:inline">{{com}}</h2>
+    </div>
+  </div>
+</div>
+<div class="container">
+
+<div class="row">
+
+  {% if com == 'overview' %}
+
+      <div class="panel panel-default">
+          <div class="panel-body">
+            <ul class="list-group">
+                <li class="list-group-item">ONLINE_USERS : {{ONLINE_USERS}}</li>
+                <li class="list-group-item">TAG_ADDED :- {{ADDED_TAG}}</li>
+                <li class="list-group-item">USER_SIGNUP :- {{USER_SIGNUP}}</li>
+                <li class="list-group-item">TRENDING_TAG :- {{TRENDING_TAG}}</li>
+                <li class="list-group-item">MAX_CLICKED :- {{MAX_CLICKED}}</li>
+                <li class="list-group-item">API_REQUEST :- {{API_REQUEST}}</li>
+            </ul>
+          </div>
+      </div>
+
+
+
+  {% elif com == 'user'%}
+
+                          <div class="table-responsive">
+                          <table class="table table-bordered table-hover table-striped table-condensed">
+                              <thead>
+                                  <tr>
+                                  <th>id</th>
+                                  <th>username</th>
+                                  <th>password</th>
+                                  <th>que</th>
+                                  <th>ans</th>
+                                  <th>
+                                    tags
+                                  </th>
+                                  <th>
+                                    Delete
+                                  </th>
+                                  <th>
+                                    Block
+                                  </th>
+                                  </tr>
+                              </thead>
+                              <tbody>
+                                {% for user in users %}
+                                  <tr>
+                                      <td>
+                                        {{user.id}}
+                                      </td>
+                                      <td>{{user.username}}</td>
+                                      <td>{{user.password}}</td>
+                                      <td>{{user.que}}</td>
+                                      <td>{{user.ans}}</td>
+                                      <td>
+                                        <table class="table table-hover table-striped table-bordered table-condensed table-responsive">
+
+                                              <thead>
+                                                <tr>
+                                                  <td>
+                                                    tags
+                                                  </td>
+                                                  <td>
+                                                    delete
+                                                  </td>
+                                                  <td>
+                                                    block
+                                                  </td>
+                                                </tr>
+                                              </thead>
+                                                {% for tag in user.tags %}
+                                                <tbody>
+
+                                              <tr>
+                                                <td>
+                                                  {{tag.tag_name}}
+                                                </td>
+                                                <td>
+                                                    <a class="btn btn-default btn-sm" href="/tag/delete/{{tag.tag_name}}">
+                                                       <span class="glyphicon glyphicon-trash" aria-hidden="true"></span>
+                                                    </a>
+                                                </td>
+                                                <td>
+                                                  <a class="btn btn-default btn-sm" href="/tag/delete/{{tag.tag_name}}?flag=1">
+                                                    <span class="glyphicon glyphicon-ban-circle" aria-hidden="true"></span>
+                                                  </a>
+
+                                                </td>
+                                              </tr>
+
+                                            </tbody>
+                                          {% endfor %}
+                                        </table>
+
+                                      </td>
+                                      <td>
+                                          <a class="btn btn-default btn-sm" href="/user/delete/username/{{user.username}}">
+                                             <span class="glyphicon glyphicon-trash" aria-hidden="true"></span>
+                                          </a>
+                                      </td>
+                                      <td>
+                                        <a class="btn btn-default btn-sm" href="/user/delete/username/{{user.username}}?flag=1">
+                                          <span class="glyphicon glyphicon-ban-circle" aria-hidden="true"></span>
+                                        </a>
+
+                                      </td>
+                                  </tr>
+                                {% endfor %}
+                              </tbody>
+
+                          </table>
+                        </div>
+
+
+  {% elif com == 'tag'%}
+
+                        <div class="table-responsive">
+                        <table class="table table-bordered table-hover table-striped table-condensed">
+                            <thead>
+                                <tr>
+                                <th>id</th>
+                                <th>tag_name</th>
+                                <th>user</th>
+                                <th>
+                                  Delete
+                                </th>
+                                <th>
+                                  Block
+                                </th>
+
+                                </tr>
+                            </thead>
+                            <tbody>
+                              {% for tag in tags %}
+                                <tr>
+                                    <td>
+                                      {{tag.id}}
+                                    </td>
+                                    <td>{{tag.tag_name}}</td>
+                                    <td>
+                                      <table>
+                                        {% for user in tag.users %}
+                                            <tr>
+                                              <td>
+                                                {{user.username}}
+                                              </td>
+                                            </tr>
+                                        {% endfor %}
+                                      </table>
+
+                                    </td>
+                                    <td>
+                                        <a class="btn btn-default btn-sm" href="/tag/delete/{{tag.tag_name}}">
+                                           <span class="glyphicon glyphicon-trash" aria-hidden="true"></span>
+                                        </a>
+                                    </td>
+                                    <td>
+                                      <a class="btn btn-default btn-sm" href="/tag/delete/{{tag.tag_name}}?flag=1">
+                                        <span class="glyphicon glyphicon-ban-circle" aria-hidden="true"></span>
+                                      </a>
+
+                                    </td>
+
+                                </tr>
+                              {% endfor %}
+                            </tbody>
+
+                        </table>
+                      </div>
+  {% elif com == 'comment'%}
+
+                                <div class="table-responsive">
+                                <table class="table table-bordered table-hover table-striped table-condensed">
+                                    <thead>
+                                        <tr>
+                                        <th>id</th>
+                                        <th>title</th>
+                                        <th>body</th>
+                                        <th>star</th>
+                                        <th>
+                                          user
+                                        </th>
+                                        <th>
+                                          delete
+                                        </th>
+
+
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {% for comment in comments %}
+                                        <tr>
+                                            <td>
+                                              {{comment.id}}
+                                            </td>
+                                            <td>{{comment.title}}</td>
+                                            <td>{{comment.body}}</td>
+                                            <td>{{comment.star}}</td>
+                                            <td>
+                                              {{comment.user.username}}
+                                            </td>
+                                            <td>
+                                                <a class="btn btn-default btn-sm" href="/comment/delete/id/{{comment.id}}">
+                                                   <span class="glyphicon glyphicon-trash" aria-hidden="true"></span>
+                                                </a>
+                                            </td>
+
+                                        </tr>
+                                      {% endfor %}
+                                    </tbody>
+
+                                </table>
+                              </div>
+
+
+  {% elif com == 'tag_table'%}
+
+
+                      <div class="table-responsive">
+                      <table class="table table-bordered table-hover table-striped table-condensed">
+                          <thead>
+                              <tr>
+                              <th>id</th>
+                              <th>tag_name</th>
+                              <th>clicks</th>
+                              <th>num_users</th>
+                              <th>is_used</th>
+
+                              </tr>
+                          </thead>
+                          <tbody>
+                            {% for tag in tags %}
+                              <tr>
+                                  <td>
+                                    {{tag.id}}
+                                  </td>
+                                  <td>{{tag.tag_name}}</td>
+                                  <td>{{tag.clicks}}</td>
+                                  <td>{{tag.num_users}}</td>
+                                  <td>{{tag.is_used}}</td>
+
+                              </tr>
+                            {% endfor %}
+                          </tbody>
+
+                      </table>
+                    </div>
+
+
+  {% elif com == 'user_table'%}
+
+
+                        <div class="table-responsive">
+                        <table class="table table-bordered table-hover table-striped table-condensed">
+                            <thead>
+                                <tr>
+                                <th>id</th>
+                                <th>username</th>
+                                <th>password</th>
+                                <th>que</th>
+                                <th>ans</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                              {% for user in users %}
+                                <tr>
+                                    <td>
+                                      {{user.id}}
+                                    </td>
+                                    <td>{{user.username}}</td>
+                                    <td>{{user.password}}</td>
+                                    <td>{{user.que}}</td>
+                                    <td>{{user.ans}}</td>
+
+                                </tr>
+                              {% endfor %}
+                            </tbody>
+
+                        </table>
+                      </div>
+
+
+  {% elif com == 'comment_table'%}
+
+
+                        <div class="table-responsive">
+                        <table class="table table-bordered table-hover table-striped table-condensed">
+                            <thead>
+                                <tr>
+                                <th>id</th>
+                                <th>title</th>
+                                <th>body</th>
+                                <th>star</th>
+
+                                </tr>
+                            </thead>
+                            <tbody>
+                              {% for comment in comments %}
+                                <tr>
+                                    <td>
+                                      {{comment.id}}
+                                    </td>
+                                    <td>{{comment.title}}</td>
+                                    <td>{{comment.body}}</td>
+                                    <td>{{comment.star}}</td>
+
+                                </tr>
+                              {% endfor %}
+                            </tbody>
+
+                        </table>
+                      </div>
+
+
+  {% elif com == 'record_table'%}
+
+              <div class="table-responsive">
+              <table class="table table-bordered table-hover table-striped table-condensed">
+                  <thead>
+                      <tr>
+                      <th>id</th>
+                      <th>
+                        timedate
+                      </th>
+                      <th>online_max</th>
+                      <th>tag_added</th>
+                      <th>user_signup</th>
+                      <th>trending_tag</th>
+                      <th>max_clicked</th>
+                      <th>api_request</th>
+
+
+                      </tr>
+                  </thead>
+                  <tbody>
+                    {% for record in records %}
+                      <tr>
+                          <td>
+                            {{record.id}}
+                          </td>
+                          <td>{{record.timedate}}</td>
+                          <td>{{record.online_max}}</td>
+                          <td>{{record.tag_added}}</td>
+                          <td>{{record.user_signup}}</td>
+                          <td>{{record.trending_tag}}</td>
+                          <td>{{record.max_clicked}}</td>
+                          <td>{{record.api_request}}</td>
+
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+
+              </table>
+            </div>
+
+
+
+  {% endif %}
+
+</div>
+</div>
+{% endblock %}
+
+
+
+    {% block body_script %}
+    <script>
+        </script>
+      {% endblock %}

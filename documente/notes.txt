@@ -24,3 +24,8 @@ https://newsapi.org/v2/everything?q=Science&%27sortBy=popularity&apiKey=838b62c7
 -------------------------------------------------
 
 HEROKU : rajatmovaliya512@gmail.com
+
+
+
+
+release: python manage.py db migrate

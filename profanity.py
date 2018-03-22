@@ -18,3 +18,7 @@ def add_bad_word(word):
 
     file = open('prof_list.txt', 'a')
     file.write(str(word)+'\n')
+
+def all_blocked_word():
+    words = list(file.read().split())
+    return words

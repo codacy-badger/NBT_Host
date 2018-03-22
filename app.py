@@ -1,7 +1,7 @@
 from flask import Flask,abort,jsonify, redirect, request, render_template, session, url_for
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import or_,desc
-from profanity import is_bad_word
+from sqlalchemy import or_,desc,func
+from profanity import is_bad_word,add_bad_word,all_blocked_word
 import requests
 import os
 import json
@@ -9,7 +9,6 @@ import time
 import traceback
 import logging
 from newsapi import NewsApiClient
-
 
 import datetime
 from threading import Thread
@@ -22,7 +21,7 @@ from threading import Thread
 username='user1'
 password='0233'
 host='localhost'
-db='p7'
+db='p0'
 
 URI = 'postgresql://'+username+':'+password+'@'+host+'/'+db
 
@@ -47,16 +46,24 @@ USER_ANS_MAX_LIMIT = 20
 USER_ANS_MIN_LIMIT = 1
 
 
+#-------------------------------------------------
+
+ONLINE_USERS=0
+MAX_ONLINE = 0
+ADDED_TAG = 0
+USER_SIGNUP =0
+API_REQUEST = 0
 
 tag_list = [ ] # tag_list for threads to featch news for
-
 
 
 
 if os.environ.get('ENV') != 'production':
     # local host
 
-    NEWS_RENEW_TIME = 24*60*60
+    domain = 'http://localhost:5000'
+
+    NEWS_RENEW_TIME =  24*60*60
     WAIT_FOR_TAG_LIST = 1
     WAIT_BEFORE_EACH_API_REQUEST = 0
     WAIT_AFTER_429_ERRORCODE = 30
@@ -68,7 +75,7 @@ if os.environ.get('ENV') != 'production':
     NEWS_PER_TAGNAME_TO_USER_HIGHLIGHTS = 3
 
 else:
-
+    domain = 'https://p-host.herokuapp.com'
     # production
     NEWS_RENEW_TIME = 24*60*60
     WAIT_FOR_TAG_LIST = 1
@@ -86,9 +93,11 @@ else:
 #----News sources
 apiKey = '838b62c7059448b0ad8383231c8ac614'
 roots = [
+    # No relevancy
     #{'sources':'the-times-of-india','sortBy':'popularity','e_or_h':'h','pageSize':str(NEWS_PER_TAGNAME_TO_USER+1)}, #
-    {'sources':'the-times-of-india,the-hindu,the-verge,bbc-news','sortBy':'popularity','e_or_h':'e','pageSize':str(NEWS_PER_TAGNAME_TO_USER+1)},
-    {'sources':'', 'sortBy':'popularity','e_or_h':'e','pageSize':str(NEWS_PER_TAGNAME_TO_USER+1)}
+    {'sources':'the-times-of-india,the-hindu,the-verge,bbc-news,google-news-in','sortBy':'popularity','e_or_h':'e','pageSize':str(NEWS_PER_TAGNAME_TO_USER+1)},
+    {'sources':'', 'sortBy':'publishedAt','e_or_h':'e','pageSize':str(NEWS_PER_TAGNAME_TO_USER+1)},
+
     ]
 
 #-----------------------------------
@@ -97,8 +106,6 @@ app = Flask(__name__)
 app.config['JSON_SORT_KEYS'] = False
 
 newsapi = NewsApiClient(api_key=apiKey)
-
-
 
 if os.environ.get('ENV') == 'production':
     app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
@@ -111,8 +118,6 @@ else:
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
-
-
 
 tagger = db.Table('tagger',
             db.Column('id', db.Integer, primary_key=True),
@@ -134,19 +139,25 @@ class Article(db.Model):
     body = db.Column(db.Text)  #unique=True
     link = db.Column(db.Text)
     img_url = db.Column(db.Text)
-    date_added = db.Column(db.DateTime)
+    date_added = db.Column(db.DateTime,server_default=func.now())
 
-    #__table_args__ = (UniqueConstraint('link', name='link_id'),
+class Record(db.Model):
 
-    #                 )
-
+    id = db.Column(db.Integer, primary_key=True)
+    online_max = db.Column(db.Integer)
+    tag_added = db.Column(db.Integer)  #unique=True
+    user_signup = db.Column(db.Integer)
+    trending_tag = db.Column(db.Text)
+    max_clicked = db.Column(db.Text)
+    api_request = db.Column(db.Integer)
+    timedate = db.Column(db.DateTime,server_default=func.now())
 
 
 class Comment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.Text)
     body = db.Column(db.Integer)
-    star = db.Column(db.Integer)
+    #star = db.Column(db.Integer)
     comment_id = db.Column(db.Integer, db.ForeignKey('user.id'))
 
 
@@ -170,7 +181,8 @@ class User(db.Model):
     comments = db.relationship('Comment',backref='user')
 
 
-#db.create_all()
+
+db.create_all()
 
 #########################################################################
 
@@ -179,12 +191,76 @@ def initialize():
     print ("Called only once, when the first request comes in")
 
 
+@app.route('/record', methods=['GET'])
+def record_user():
+    global ONLINE_USERS, MAX_ONLINE
+    flag = request.args.get('flag')
+    if flag == 'signin':
+        ONLINE_USERS += 1
+        if ONLINE_USERS > MAX_ONLINE:
+            MAX_ONLINE = ONLINE_USERS
+    elif (flag == 'signout'):
+        ONLINE_USERS -= 1
+
+    return "nothing"
+
 @app.route('/', methods=['GET'])
 def index_get():
 
-    articles = Article.query.all()
-    return render_template('index.html', articles=articles)
+    if 'com' in request.args:
+        com = request.args.get('com')
+    else:
+        com = 'overview'
+#----------------------------------------------------------------------
 
+    if com == 'overview':
+        max_clicked = Tag.query.order_by(desc(Tag.clicks)).all()
+        trending_tag = Tag.query.order_by(desc(Tag.num_users)).all()
+
+        if max_clicked == []:
+            max_clicked='No Tag Return'
+        else:
+            max_clicked = max_clicked[0].tag_name
+
+        if trending_tag == []:
+            trending_tag='No Tag Return'
+        else:
+            trending_tag = trending_tag[0].tag_name
+
+        return render_template('index_admin.html',com='overview',TRENDING_TAG=trending_tag,MAX_CLICKED=max_clicked,ONLINE_USERS=ONLINE_USERS,MAX_ONLINE=MAX_ONLINE,ADDED_TAG=ADDED_TAG,USER_SIGNUP=USER_SIGNUP,API_REQUEST=API_REQUEST)
+
+    elif com == 'tag_table':
+        tags = Tag.query.all()
+        return render_template('index_admin.html',com='tag_table',tags=tags)
+
+
+    elif com == 'record_table':
+        records = Record.query.all()
+        return render_template('index_admin.html',com='record_table',records=records)
+
+
+    elif com == 'user_table':
+        users = User.query.all()
+        return render_template('index_admin.html',com='user_table',users=users)
+
+    elif com == 'comment_table':
+        comments = Comment.query.all()
+        return render_template('index_admin.html',com='comment_table',comments=comments)
+
+    elif com == 'tag':
+        tags = Tag.query.all()
+        return render_template('index_admin.html',com='tag',tags=tags)
+
+    elif com == 'user':
+        users = User.query.all()
+        return render_template('index_admin.html',com='user',users=users)
+
+    elif com == 'comment':
+        comments = Comment.query.all()
+        return render_template('index_admin.html',com='comment',comments=comments)
+
+    else:
+        return "nothing selected"
 
 @app.route('/news/highlights/username/<username>', methods=['GET'])
 def highlights_get(username):
@@ -259,6 +335,8 @@ def tag_name_get(tag_name):
 @app.route('/tag/add/<user_name>/<tag_name>', methods=['GET'])
 def tag_add_get(user_name, tag_name):
 
+    global ADDED_TAG
+
     tag_name = tag_name.strip().title()
     if len(tag_name) > TAG_NAME_CHAR_LIMIT:
         print("returning error msg")
@@ -294,10 +372,11 @@ def tag_add_get(user_name, tag_name):
             return jsonify( {'added_tag': res,'status':1 } )
 
     else:
-        if is_bad_word(tag_name) == True:
-            print("return true")
-            return jsonify({'status':0,'msg':'!! Profanity word as tag name is not allowed !!'})
-        """
+        for word in tag_name.split():
+            if is_bad_word(tag_name) == True:
+                print("return true")
+                return jsonify({'status':0,'msg':'!! Profanity word as tag name is not allowed !!'})
+            """
         try:
             result = requests.get("http://www.purgomalum.com/service/containsprofanity?text="+tag_name)
             if result.status_code == 200:
@@ -313,6 +392,7 @@ def tag_add_get(user_name, tag_name):
         #parser(tag.tag_name)
         #Thread(target=parser, args=([tag.tag_name]).start()
         tag_list.insert(0,tag.tag_name)
+        ADDED_TAG +=1
         #Thread(target=parser,args=(tag.tag_name,)).start()
 
         tag.users.append(u)
@@ -364,10 +444,19 @@ def tag_delete_get(tagname):
     if tag == None:
         return jsonify( {'msg':'tag not found for given id'} )
 
+    if 'flag' in request.args:
+        add_bad_word(tag.tag_name)
 
     res = {}
     res["tag_name"] = tag.tag_name
     res["id"]= tag.id
+
+    for user in tag.users:
+        user.tags.remove(tag)
+
+    for article in tag.articles:
+        db.session.delete(article)
+    db.session.commit()
 
     db.session.delete(tag)
     db.session.commit()
@@ -425,6 +514,40 @@ def autocomplete():
 
 
 #####################################################################################
+
+@app.route('/comment/delete/id/<id>', methods=['GET'])
+def delete_comment_get(id):
+    com = Comment.query.filter_by(id = id).first()
+    usr = com.user
+    usr.comments.remove(com)
+    db.session.delete(com)
+    db.session.commit()
+    return "deleted"
+
+###################################################################################
+
+@app.route('/user/delete/username/<username>', methods=['GET'])
+def delete_username_get(username):
+    user = User.query.filter_by(username = username).first()
+    for tag in user.tags:
+
+            if 'flag' in request.args:
+                add_bad_word(tag.tag_name)
+
+            for user in tag.users:
+                user.tags.remove(tag)
+
+            for article in tag.articles:
+                db.session.delete(article)
+            db.session.commit()
+
+            db.session.delete(tag)
+            db.session.commit()
+
+
+    db.session.delete(user)
+    db.session.commit()
+    return "deleted"
 
 @app.route('/user/username/<username>', methods=['GET'])
 def user_details_get(username):
@@ -493,6 +616,7 @@ def user_details_update_get():
 
 @app.route('/signup', methods=['POST'])
 def tag_signup_post():
+    global USER_SIGNUP
 
     username = request.form['username'].strip()
     name = request.form['name'].strip()
@@ -534,6 +658,7 @@ def tag_signup_post():
     user = User(username = username, name=name, password=password, que=que, ans=ans)
     db.session.add(user)
     db.session.commit()
+    USER_SIGNUP += 1
 
     return jsonify( {'status': 1} )
 
@@ -557,7 +682,7 @@ def tag_signin_post():
 ##########################################################################
 
 def parser():
-        global WAIT_AFTER_429_ERRORCODE,  WAIT_BEFORE_EACH_API_REQUEST,  WAIT_FOR_TAG_LIST
+        global WAIT_AFTER_429_ERRORCODE,  WAIT_BEFORE_EACH_API_REQUEST,  WAIT_FOR_TAG_LIST, API_REQUEST
         global ADDER_429,  ADDER_EACH_API_REQUEST
         print("Inside parser")
         while True:
@@ -603,7 +728,9 @@ def parser():
                     while True:
 
                             time.sleep(WAIT_BEFORE_EACH_API_REQUEST)
+
                             response = requests.get(url, params=payload,timeout=20)
+                            API_REQUEST +=1
                             print (response.url)
                             if response.status_code != 429:
                                 break
@@ -669,7 +796,8 @@ def adder(tagname, response):
                         yes = 1
                         break
                 if yes == 0:
-                    a = Article(title= title, body= body, link = link, img_url = img_url,date_added=datetime.datetime.utcnow)
+                    #,date_added=datetime.datetime.utcnow
+                    a = Article(title= title, body= body, link = link, img_url = img_url)
                     db.session.add(a)
                     t.articles.append(a)
                     db.session.commit()
@@ -688,10 +816,38 @@ def adder(tagname, response):
     return
 
 
+
 def update_loop():
+
+    global ONLINE_USERS, MAX_ONLINE, ADDED_TAG, USER_SIGNUP, API_REQUEST
+
     print("Inside update_loop")
 
     while True:
+
+        max_clicked = Tag.query.order_by(desc(Tag.clicks)).all()
+        trending_tag = Tag.query.order_by(desc(Tag.num_users)).all()
+
+        if max_clicked == []:
+            max_clicked='No Tag Return'
+        else:
+            max_clicked = max_clicked[0].tag_name
+
+        if trending_tag == []:
+            trending_tag='No Tag Return'
+        else:
+            trending_tag = trending_tag[0].tag_name
+        r = Record(online_max=ONLINE_USERS, tag_added=ADDED_TAG, user_signup=USER_SIGNUP, trending_tag=trending_tag, max_clicked=max_clicked, api_request=API_REQUEST)
+        db.session.add(r)
+        db.session.commit()
+
+
+        ONLINE_USERS=0
+        MAX_ONLINE = 0
+        ADDED_TAG = 0
+        USER_SIGNUP =0
+        API_REQUEST = 0
+
 
         if os.environ.get('ENV') != 'production':
 #            time.sleep(NEWS_RENEW_TIME)
@@ -706,6 +862,9 @@ def update_loop():
 
         #time.sleep()
         time.sleep(NEWS_RENEW_TIME)
+
+
+
     print("return from update_loop")
     return
 
@@ -715,4 +874,5 @@ Thread(target=update_loop).start()
 
 
 if "__main__" == __name__:
+        print(__name__)
         app.run(use_reloader=False)
