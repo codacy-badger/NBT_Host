@@ -63,7 +63,7 @@ API_REQUEST = 0
 tag_list = [ ] # tag_list for threads to featch news for
 
 
-MIGRATING = 1
+MIGRATING = 0
 
 if os.environ.get('ENV') != 'production':
     # local host
