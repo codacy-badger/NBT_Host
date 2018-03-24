@@ -946,11 +946,11 @@ print("starting threads")
 if MIGRATING == 0:
     Thread(target=parser).start()
     Thread(target=repeater).start()
+    update_loop()
 
 schedule.every().day.at(RENEW_TIME).do(update_loop,'It is 03:00')
 
 
-update_loop()
 
 if "__main__" == __name__:
         print(__name__)
