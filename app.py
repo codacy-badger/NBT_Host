@@ -102,7 +102,7 @@ else:
     ADDER_EACH_API_REQUEST = 0.10
     ADDER_429 = 10
 
-    NEWS_PER_TAGNAME_TO_USER = 30
+    NEWS_PER_TAGNAME_TO_USER = 20
     NEWS_PER_TAGNAME_TO_USER_HIGHLIGHTS = 3
     TAG_DAYS_LIMIT = 30
 #-------------------------------------------------------------
