@@ -29,3 +29,5 @@ HEROKU : rajatmovaliya512@gmail.com
 
 
 release: python manage.py db migrate
+
+ data-toggle="tooltip" title="First 'SignIn' to add new tag in account"

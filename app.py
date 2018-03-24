@@ -21,7 +21,7 @@ from threading import Thread
 username='user1'
 password='0233'
 host='localhost'
-db='p0'
+db='p2'
 
 URI = 'postgresql://'+username+':'+password+'@'+host+'/'+db
 
@@ -45,6 +45,12 @@ USER_QUE_MIN_LIMIT = 1
 USER_ANS_MAX_LIMIT = 20
 USER_ANS_MIN_LIMIT = 1
 
+COMMENT_BODY_MIN_LIMIT=1
+COMMENT_BODY__MAX_LIMIT=5000
+
+COMMENT_TITLE_MIN_LIMIT=1
+COMMENT_TITLE__MAX_LIMIT=100
+
 
 #-------------------------------------------------
 
@@ -62,6 +68,7 @@ if os.environ.get('ENV') != 'production':
     # local host
 
     domain = 'http://localhost:5000'
+    fe_domain = 'http://localhost:5001'
 
     NEWS_RENEW_TIME =  24*60*60
     WAIT_FOR_TAG_LIST = 1
@@ -71,11 +78,12 @@ if os.environ.get('ENV') != 'production':
     ADDER_EACH_API_REQUEST = 0.10
     ADDER_429 = 10
 
-    NEWS_PER_TAGNAME_TO_USER = 30
+    NEWS_PER_TAGNAME_TO_USER = 20
     NEWS_PER_TAGNAME_TO_USER_HIGHLIGHTS = 3
 
 else:
     domain = 'https://p-host.herokuapp.com'
+    fe_domain = 'https://newsbytag.herokuapp.com'
     # production
     NEWS_RENEW_TIME = 24*60*60
     WAIT_FOR_TAG_LIST = 1
@@ -156,9 +164,9 @@ class Record(db.Model):
 class Comment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.Text)
-    body = db.Column(db.Integer)
-    #star = db.Column(db.Integer)
-    comment_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    body = db.Column(db.Text)
+    star = db.Column(db.Integer)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
 
 
 class Tag(db.Model):
@@ -167,7 +175,10 @@ class Tag(db.Model):
     clicks = db.Column(db.Integer)
     num_users = db.Column(db.Integer)
     is_used = db.Column(db.Integer)
+    mod_date = db.Column(db.Integer)
+
     articles = db.relationship('Article', secondary= tagger, backref= db.backref('tags',lazy=True))
+
     #users = db.relationship('User', secondary= connector, backref= db.backref('tags',lazy=True)
 
 class User(db.Model):
@@ -182,7 +193,7 @@ class User(db.Model):
 
 
 
-db.create_all()
+#db.create_all()
 
 #########################################################################
 
@@ -305,6 +316,7 @@ def tag_name_get(tag_name):
         """
         tags[0].clicks = tags[0].clicks + 1
         tags[0].is_used = 1
+        tags[0].mod_date = 1
         db.session.commit()
 
         articles = tags[0].articles
@@ -373,7 +385,7 @@ def tag_add_get(user_name, tag_name):
 
     else:
         for word in tag_name.split():
-            if is_bad_word(tag_name) == True:
+            if is_bad_word(word) == True:
                 print("return true")
                 return jsonify({'status':0,'msg':'!! Profanity word as tag name is not allowed !!'})
             """
@@ -385,7 +397,7 @@ def tag_add_get(user_name, tag_name):
         except:
             pass
         """
-        tag = Tag(tag_name = tag_name,clicks=1,num_users=1,is_used=1)
+        tag = Tag(tag_name = tag_name,clicks=1,num_users=1,is_used=1, mod_date=1)
         db.session.add(tag)
         db.session.commit()
         print("hi")
@@ -434,10 +446,19 @@ def tag_delete_username_get(username,tagname):
 @app.route('/tag/delete/<tagname>', methods=['GET'])
 def tag_delete_get(tagname):
 
-    if tagname == '*':
-        db.session.query(Tag).delete()
-        db.session.commit()
-        return jsonify({'msg':"Deleted all tags"})
+    if tagname == '*alltagdelete*':
+        for tag in Tag.query.all():
+            for article in tag.articles:
+                db.session.delete(article)
+                db.session.commit()
+
+            for user in tag.users:
+                    user.tags.remove(tag)
+
+            db.session.delete(tag)
+            db.session.commit()
+
+        return redirect(url_for('index_get',com='tag'))
 
     tag = Tag.query.filter(Tag.tag_name == tagname).first()
 
@@ -453,15 +474,15 @@ def tag_delete_get(tagname):
 
     for user in tag.users:
         user.tags.remove(tag)
-
+        db.session.commit()
     for article in tag.articles:
         db.session.delete(article)
-    db.session.commit()
+        db.session.commit()
 
     db.session.delete(tag)
     db.session.commit()
 
-    return jsonify( {'deleted_tag':res } )
+    return redirect(url_for('index_get',com='tag'))
 
 
 @app.route('/tag/trending/<int:top>', methods=['GET'])
@@ -508,7 +529,8 @@ def tag_username_get(username='rnmpatel'):
 def autocomplete():
     results = []
     search = request.args.get('q')
-    for mv in Tag.query.filter(Tag.tag_name.ilike('%' + str(search) + '%')).limit(8).all():
+    t =Tag.query.filter(Tag.tag_name.ilike('%' + str(search) + '%')).limit(8).all()
+    for mv in t:
         results.append(mv.tag_name)
     return jsonify(json_list=results)
 
@@ -524,11 +546,41 @@ def delete_comment_get(id):
     db.session.commit()
     return "deleted"
 
+
+
+@app.route('/comment', methods=['POST'])
+def comment_post():
+    username = request.form['username'].strip()
+    title = request.form['title'].strip()
+    body = request.form['body'].strip()
+    star = int(request.form['rating'])
+
+    if len(title) < COMMENT_TITLE_MIN_LIMIT:
+               return jsonify( {'status': 0, 'msg':'!! Minimum length of $ Title $ should be '+str(COMMENT_TITLE_MIN_LIMIT)+' character !!'})
+    if len(title) > COMMENT_TITLE__MAX_LIMIT:
+               return jsonify( {'status': 0, 'msg':'!! Maximum length of $ Title $ should be '+str(COMMENT_TITLE__MAX_LIMIT)+' character !!'})
+
+    if len(body) < COMMENT_BODY_MIN_LIMIT:
+               return jsonify( {'status': 0, 'msg':'!! Minimum length of $ Body $ should be '+str(COMMENT_BODY_MIN_LIMIT)+' character !!'})
+    if len(body) > COMMENT_BODY__MAX_LIMIT:
+               return jsonify( {'status': 0, 'msg':'!! Maximum length of $ Body $ should be '+str(COMMENT_BODY__MAX_LIMIT)+' character !!'})
+
+
+    u=User.query.filter_by(username=username).first()
+    c=Comment(title=title,body=body,star=star,user=u)
+    db.session.add(c)
+    db.session.commit()
+
+    return jsonify({'status':1})
+
 ###################################################################################
 
 @app.route('/user/delete/username/<username>', methods=['GET'])
 def delete_username_get(username):
     user = User.query.filter_by(username = username).first()
+
+    res = requests.get(fe_domain+'/signout');
+
     for tag in user.tags:
 
             if 'flag' in request.args:
@@ -547,7 +599,8 @@ def delete_username_get(username):
 
     db.session.delete(user)
     db.session.commit()
-    return "deleted"
+
+    return redirect(url_for('index_get'),com='user')
 
 @app.route('/user/username/<username>', methods=['GET'])
 def user_details_get(username):
@@ -789,7 +842,7 @@ def adder(tagname, response):
                 img_url = article['urlToImage']
 
                 yes = 0
-                articles = Article.query.filter(or_(Article.link == link,Article.title == title)).all()
+                articles = Article.query.filter(or_(Article.link == link,Article.title == title,Article.img_url == img_url)).all()
                 for article in articles:
                     if article in t.articles:
                         a = article
@@ -825,6 +878,21 @@ def update_loop():
 
     while True:
 
+
+        if os.environ.get('ENV') != 'production':
+#            time.sleep(NEWS_RENEW_TIME)
+            pass
+
+        tags = Tag.query.all()
+        my_tag_list = []
+        for tag in tags:
+            my_tag_list.append(tag.tag_name)
+        print("list sent :",my_tag_list)
+        tag_list.extend(my_tag_list)
+
+        #time.sleep()
+        time.sleep(NEWS_RENEW_TIME)
+
         max_clicked = Tag.query.order_by(desc(Tag.clicks)).all()
         trending_tag = Tag.query.order_by(desc(Tag.num_users)).all()
 
@@ -849,28 +917,17 @@ def update_loop():
         API_REQUEST = 0
 
 
-        if os.environ.get('ENV') != 'production':
-#            time.sleep(NEWS_RENEW_TIME)
-            pass
-
-        tags = Tag.query.all()
-        my_tag_list = []
-        for tag in tags:
-            my_tag_list.append(tag.tag_name)
-        print("list sent :",my_tag_list)
-        tag_list.extend(my_tag_list)
-
-        #time.sleep()
-        time.sleep(NEWS_RENEW_TIME)
-
-
 
     print("return from update_loop")
     return
 
+
+
+
 print("starting threads")
 Thread(target=parser).start()
 Thread(target=update_loop).start()
+
 
 
 if "__main__" == __name__:
