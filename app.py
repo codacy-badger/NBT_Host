@@ -10,6 +10,7 @@ import traceback
 import logging
 from newsapi import NewsApiClient
 
+import schedule
 import datetime
 from threading import Thread
 
@@ -60,6 +61,7 @@ ADDED_TAG = 0
 USER_SIGNUP =0
 API_REQUEST = 0
 
+
 tag_list = [ ] # tag_list for threads to featch news for
 
 
@@ -70,6 +72,9 @@ if os.environ.get('ENV') != 'production':
 
     domain = 'http://localhost:5000'
     fe_domain = 'http://localhost:5001'
+
+
+    RENEW_TIME = "21:34"
 
     NEWS_RENEW_TIME =  24*60*60
     WAIT_FOR_TAG_LIST = 1
@@ -87,9 +92,10 @@ else:
     domain = 'https://p-host.herokuapp.com'
     fe_domain = 'https://newsbytag.herokuapp.com'
     # production
+    RENEW_TIME = "03:00"
 
     NEWS_RENEW_TIME = 24*60*60
-    WAIT_FOR_TAG_LIST = 1
+    WAIT_FOR_TAG_LIST = 0.5
     WAIT_BEFORE_EACH_API_REQUEST = 0
     WAIT_AFTER_429_ERRORCODE = 30
 
@@ -179,8 +185,8 @@ class Tag(db.Model):
     num_users = db.Column(db.Integer)
     is_used = db.Column(db.Integer)
     mod_date = db.Column(db.Integer)
-    test = db.Column(db.Integer)
-    com = db.Column(db.Integer)
+    #test = db.Column(db.Integer)
+#    com = db.Column(db.Integer)
     articles = db.relationship('Article', secondary= tagger, backref= db.backref('tags',lazy=True))
     #users = db.relationship('User', secondary= connector, backref= db.backref('tags',lazy=True)
 
@@ -879,74 +885,76 @@ def update_loop():
 
     print("Inside update_loop")
 
-    while True:
+    tags = Tag.query.all()
+    for tag in tags:
+        if tag.mod_date > TAG_DAYS_LIMIT:
 
-        tags = Tag.query.all()
-        for tag in tags:
-            if tag.mod_date > TAG_DAYS_LIMIT:
+            print("\n\nTag is deleted because of no use :",tag.tag_name)
+            for user in tag.users:
+                user.tags.remove(tag)
 
-                print("\n\nTag is deleted because of no use :",tag.tag_name)
-                for user in tag.users:
-                    user.tags.remove(tag)
+            for article in tag.articles:
+                db.session.delete(article)
 
-                for article in tag.articles:
-                    db.session.delete(article)
+            db.session.delete(tag)
 
-                db.session.delete(tag)
-
-            else:
-                tag.mod_date = tag.mod_date + 1
-        db.session.commit()
-
-
-        tags = Tag.query.all()
-        my_tag_list = []
-        for tag in tags:
-            my_tag_list.append(tag.tag_name)
-        print("list sent :",my_tag_list)
-        tag_list.extend(my_tag_list)
-
-        #time.sleep()
-        time.sleep(NEWS_RENEW_TIME)
-
-        max_clicked = Tag.query.order_by(desc(Tag.clicks)).all()
-        trending_tag = Tag.query.order_by(desc(Tag.num_users)).all()
-
-        if max_clicked == []:
-            max_clicked='No Tag Return'
         else:
-            max_clicked = max_clicked[0].tag_name
-
-        if trending_tag == []:
-            trending_tag='No Tag Return'
-        else:
-            trending_tag = trending_tag[0].tag_name
-        r = Record(online_max=ONLINE_USERS, tag_added=ADDED_TAG, user_signup=USER_SIGNUP, trending_tag=trending_tag, max_clicked=max_clicked, api_request=API_REQUEST)
-        db.session.add(r)
-        db.session.commit()
+            tag.mod_date = tag.mod_date + 1
+    db.session.commit()
 
 
-        ONLINE_USERS=0
-        MAX_ONLINE = 0
-        ADDED_TAG = 0
-        USER_SIGNUP =0
-        API_REQUEST = 0
+    tags = Tag.query.all()
+    my_tag_list = []
+    for tag in tags:
+        my_tag_list.append(tag.tag_name)
+    print("list sent :",my_tag_list)
+    tag_list.extend(my_tag_list)
 
 
+    max_clicked = Tag.query.order_by(desc(Tag.clicks)).all()
+    trending_tag = Tag.query.order_by(desc(Tag.num_users)).all()
 
-    print("return from update_loop")
+    if max_clicked == []:
+        max_clicked='No Tag Return'
+    else:
+        max_clicked = max_clicked[0].tag_name
+
+    if trending_tag == []:
+        trending_tag='No Tag Return'
+    else:
+        trending_tag = trending_tag[0].tag_name
+    r = Record(online_max=ONLINE_USERS, tag_added=ADDED_TAG, user_signup=USER_SIGNUP, trending_tag=trending_tag, max_clicked=max_clicked, api_request=API_REQUEST)
+    db.session.add(r)
+    db.session.commit()
+
+
+    ONLINE_USERS=0
+    MAX_ONLINE = 0
+    ADDED_TAG = 0
+    USER_SIGNUP =0
+    API_REQUEST = 0
+
     return
 
+
+
+def repeater():
+    while True:
+        schedule.run_pending()
+        time.sleep(60) # wait one minute
 
 
 
 print("starting threads")
 if MIGRATING == 0:
     Thread(target=parser).start()
-    Thread(target=update_loop).start()
+    Thread(target=repeater).start()
+
+schedule.every().day.at(RENEW_TIME).do(update_loop,'It is 03:00')
 
 
+update_loop()
 
 if "__main__" == __name__:
         print(__name__)
-        app.run(use_reloader=False)
+        app.run(use_reloader=False,threaded=True)
