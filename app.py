@@ -120,7 +120,6 @@ roots = [
 app = Flask(__name__)
 app.config['JSON_SORT_KEYS'] = False
 
-newsapi = NewsApiClient(api_key=apiKey)
 
 if os.environ.get('ENV') == 'production':
     app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
