@@ -21,7 +21,7 @@ from threading import Thread
 username='user1'
 password='0233'
 host='localhost'
-db='p2'
+db='p5'
 
 URI = 'postgresql://'+username+':'+password+'@'+host+'/'+db
 
@@ -63,6 +63,7 @@ API_REQUEST = 0
 tag_list = [ ] # tag_list for threads to featch news for
 
 
+MIGRATING = 1
 
 if os.environ.get('ENV') != 'production':
     # local host
@@ -80,11 +81,13 @@ if os.environ.get('ENV') != 'production':
 
     NEWS_PER_TAGNAME_TO_USER = 20
     NEWS_PER_TAGNAME_TO_USER_HIGHLIGHTS = 3
+    TAG_DAYS_LIMIT = 30
 
 else:
     domain = 'https://p-host.herokuapp.com'
     fe_domain = 'https://newsbytag.herokuapp.com'
     # production
+
     NEWS_RENEW_TIME = 24*60*60
     WAIT_FOR_TAG_LIST = 1
     WAIT_BEFORE_EACH_API_REQUEST = 0
@@ -95,7 +98,7 @@ else:
 
     NEWS_PER_TAGNAME_TO_USER = 30
     NEWS_PER_TAGNAME_TO_USER_HIGHLIGHTS = 3
-
+    TAG_DAYS_LIMIT = 30
 #-------------------------------------------------------------
 #,the-hindu,the-verge,bbc-news
 #----News sources
@@ -176,9 +179,9 @@ class Tag(db.Model):
     num_users = db.Column(db.Integer)
     is_used = db.Column(db.Integer)
     mod_date = db.Column(db.Integer)
-
+    test = db.Column(db.Integer)
+    com = db.Column(db.Integer)
     articles = db.relationship('Article', secondary= tagger, backref= db.backref('tags',lazy=True))
-
     #users = db.relationship('User', secondary= connector, backref= db.backref('tags',lazy=True)
 
 class User(db.Model):
@@ -193,6 +196,7 @@ class User(db.Model):
 
 
 
+#if MIGRATING == 0:
 #db.create_all()
 
 #########################################################################
@@ -318,6 +322,7 @@ def tag_name_get(tag_name):
         tags[0].is_used = 1
         tags[0].mod_date = 1
         db.session.commit()
+
 
         articles = tags[0].articles
         if articles:
@@ -450,7 +455,7 @@ def tag_delete_get(tagname):
         for tag in Tag.query.all():
             for article in tag.articles:
                 db.session.delete(article)
-                db.session.commit()
+            db.session.commit()
 
             for user in tag.users:
                     user.tags.remove(tag)
@@ -474,10 +479,10 @@ def tag_delete_get(tagname):
 
     for user in tag.users:
         user.tags.remove(tag)
-        db.session.commit()
+    db.session.commit()
     for article in tag.articles:
         db.session.delete(article)
-        db.session.commit()
+    db.session.commit()
 
     db.session.delete(tag)
     db.session.commit()
@@ -533,8 +538,6 @@ def autocomplete():
     for mv in t:
         results.append(mv.tag_name)
     return jsonify(json_list=results)
-
-
 #####################################################################################
 
 @app.route('/comment/delete/id/<id>', methods=['GET'])
@@ -878,10 +881,23 @@ def update_loop():
 
     while True:
 
+        tags = Tag.query.all()
+        for tag in tags:
+            if tag.mod_date > TAG_DAYS_LIMIT:
 
-        if os.environ.get('ENV') != 'production':
-#            time.sleep(NEWS_RENEW_TIME)
-            pass
+                print("\n\nTag is deleted because of no use :",tag.tag_name)
+                for user in tag.users:
+                    user.tags.remove(tag)
+
+                for article in tag.articles:
+                    db.session.delete(article)
+
+                db.session.delete(tag)
+
+            else:
+                tag.mod_date = tag.mod_date + 1
+        db.session.commit()
+
 
         tags = Tag.query.all()
         my_tag_list = []
@@ -925,8 +941,9 @@ def update_loop():
 
 
 print("starting threads")
-Thread(target=parser).start()
-Thread(target=update_loop).start()
+if MIGRATING == 0:
+    Thread(target=parser).start()
+    Thread(target=update_loop).start()
 
 
 
