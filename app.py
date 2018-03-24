@@ -7,8 +7,6 @@ import os
 import json
 import time
 import traceback
-import logging
-from newsapi import NewsApiClient
 
 import schedule
 import datetime
