@@ -1,0 +1,65 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-115904289-1"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'UA-115904289-1');
+    </script>
+
+
+    {% block head_meta %}
+
+    {% endblock %}
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+
+    {% block head_css %}
+    <!-- Latest compiled and minified CSS bootstrap-->
+    {% endblock %}
+
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <link href="http://code.jquery.com/ui/1.10.2/themes/smoothness/jquery-ui.css" rel="Stylesheet"></link>
+    <script src="http://code.jquery.com/ui/1.10.2/jquery-ui.js" ></script>
+
+    {% block head_script %}
+    <!-- Scription Links -->
+    {% endblock %}
+
+
+
+  </head>
+<!--
+       <body style="background-color:#cacfd2">
+-->
+
+        <body background="{{url_for('static', filename='back12.jpeg')}}" style="background-size:cover;">
+        {% block body_head %}
+        {% endblock %}
+
+        {% block body_core %}
+        {% endblock %}
+
+        {% block body_footer %}
+        {% endblock %}
+
+        {% block body_script %}
+        {% endblock %}
+        <script type="text/javascript">
+
+          $("#danger-alert").fadeTo(7000, 500).slideUp(500, function(){
+          $("#danger-alert").slideUp(500);
+          });
+
+
+        </script>
+    </body>
+</html>
