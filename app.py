@@ -221,7 +221,7 @@ def record_user():
 
     return "nothing"
 
-@app.route('/', methods=['GET'])
+@app.route('/admin/password/838b62c7059448b0ad8383231c8ac614', methods=['GET'])
 def index_get():
 
     if 'com' in request.args:
