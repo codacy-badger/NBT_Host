@@ -83,7 +83,7 @@ if os.environ.get('ENV') != 'production':
 
     NEWS_PER_TAGNAME_TO_USER = 20
     NEWS_PER_TAGNAME_TO_USER_HIGHLIGHTS = 3
-    TAG_DAYS_LIMIT = 30
+    TAG_DAYS_LIMIT = 15
 
 else:
     domain = 'https://p-host.herokuapp.com'
@@ -101,7 +101,7 @@ else:
 
     NEWS_PER_TAGNAME_TO_USER = 20
     NEWS_PER_TAGNAME_TO_USER_HIGHLIGHTS = 3
-    TAG_DAYS_LIMIT = 30
+    TAG_DAYS_LIMIT = 15
 #-------------------------------------------------------------
 #,the-hindu,the-verge,bbc-news
 #----News sources
