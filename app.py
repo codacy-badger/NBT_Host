@@ -26,7 +26,7 @@ URI = 'postgresql://'+username+':'+password+'@'+host+'/'+db
 
 #--- PROGRAM Variables
 TAG_NAME_CHAR_LIMIT = 18
-USER_TAG_MAX_LIMIT = 8
+USER_TAG_MAX_LIMIT = 5
 
 #----User loggin related
 USER_NAME_MAX_LIMIT = 20
