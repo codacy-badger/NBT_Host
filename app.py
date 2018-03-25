@@ -72,7 +72,7 @@ if os.environ.get('ENV') != 'production':
 
 
     RENEW_TIME = "22:59"
-
+    apiKey = 'e72bb370d548488c9919ed7f61aa6346'
     NEWS_RENEW_TIME =  24*60*60
     WAIT_FOR_TAG_LIST = 1
     WAIT_BEFORE_EACH_API_REQUEST = 0.1
@@ -90,7 +90,7 @@ else:
     fe_domain = 'https://newsbytag.herokuapp.com'
     # production
     RENEW_TIME = "03:00"
-
+    apiKey = '838b62c7059448b0ad8383231c8ac614'
     NEWS_RENEW_TIME = 24*60*60
     WAIT_FOR_TAG_LIST = 0.5
     WAIT_BEFORE_EACH_API_REQUEST = 0.1
@@ -105,7 +105,7 @@ else:
 #-------------------------------------------------------------
 #,the-hindu,the-verge,bbc-news
 #----News sources
-apiKey = '838b62c7059448b0ad8383231c8ac614'
+
 roots = [
     # No relevancy
     #{'sources':'the-times-of-india','sortBy':'popularity','e_or_h':'h','pageSize':str(NEWS_PER_TAGNAME_TO_USER+1)}, #
