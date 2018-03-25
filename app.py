@@ -71,11 +71,11 @@ if os.environ.get('ENV') != 'production':
     fe_domain = 'http://localhost:5001'
 
 
-    RENEW_TIME = "21:34"
+    RENEW_TIME = "22:59"
 
     NEWS_RENEW_TIME =  24*60*60
     WAIT_FOR_TAG_LIST = 1
-    WAIT_BEFORE_EACH_API_REQUEST = 0
+    WAIT_BEFORE_EACH_API_REQUEST = 0.1
     WAIT_AFTER_429_ERRORCODE = 30
 
     ADDER_EACH_API_REQUEST = 0.10
@@ -93,8 +93,8 @@ else:
 
     NEWS_RENEW_TIME = 24*60*60
     WAIT_FOR_TAG_LIST = 0.5
-    WAIT_BEFORE_EACH_API_REQUEST = 0
-    WAIT_AFTER_429_ERRORCODE = 30
+    WAIT_BEFORE_EACH_API_REQUEST = 0.1
+    WAIT_AFTER_429_ERRORCODE = 60
 
     ADDER_EACH_API_REQUEST = 0.10
     ADDER_429 = 10
@@ -946,7 +946,7 @@ if MIGRATING == 0:
     Thread(target=repeater).start()
     update_loop()
 
-schedule.every().day.at(RENEW_TIME).do(update_loop,'It is 03:00')
+schedule.every().day.at(RENEW_TIME).do(update_loop)
 
 
 
