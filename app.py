@@ -62,7 +62,6 @@ API_REQUEST = 0
 
 tag_list = [ ] # tag_list for threads to featch news for
 
-
 MIGRATING = 0
 
 if os.environ.get('ENV') != 'production':
@@ -354,7 +353,6 @@ def tag_name_get(tag_name):
 
 @app.route('/tag/add/<user_name>/<tag_name>', methods=['GET'])
 def tag_add_get(user_name, tag_name):
-
     global ADDED_TAG
 
     tag_name = tag_name.strip().title()
@@ -423,6 +421,7 @@ def tag_add_get(user_name, tag_name):
         res["tag_name"] = tag.tag_name
         res["id"]= tag.id
         res['username']=u.username
+        print("Tag is added",tag.tag_name)
         return jsonify( {'added_tag': res,'status':1 } )
 
     return jsonify({'status':0,'msg':'!! Not Added !!'})
@@ -787,8 +786,7 @@ def parser():
                     while True:
 
                             time.sleep(WAIT_BEFORE_EACH_API_REQUEST)
-
-                            response = requests.get(url, params=payload,timeout=20)
+                            response = requests.get(url, params=payload,timeout=10)
                             API_REQUEST +=1
                             print (response.url)
                             if response.status_code != 429:
@@ -796,10 +794,10 @@ def parser():
                             print("Status code is 429 so sleeping")
                             if no_429 == 0:
                                 WAIT_BEFORE_EACH_API_REQUEST += ADDER_EACH_API_REQUEST # 0.25
-                                print('\n\n\nmodified each request wait :', WAIT_BEFORE_EACH_API_REQUEST)
+                                print('\n\n\nmodified each request wait ,current is :', WAIT_BEFORE_EACH_API_REQUEST)
                             if no_429 > 1:
                                 WAIT_AFTER_429_ERRORCODE += ADDER_429  # 10
-                                print("\n\n\nmodified 429 :",WAIT_AFTER_429_ERRORCODE)
+                                print("\n\n\n Added 429 waiting limit ,current is :",WAIT_AFTER_429_ERRORCODE)
                             time.sleep(WAIT_AFTER_429_ERRORCODE)
 
                     if response.status_code != 200:
