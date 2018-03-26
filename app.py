@@ -7,7 +7,7 @@ import os
 import json
 import time
 import traceback
-
+import logging
 import schedule
 import datetime
 from threading import Thread
@@ -26,7 +26,7 @@ URI = 'postgresql://'+username+':'+password+'@'+host+'/'+db
 
 #--- PROGRAM Variables
 TAG_NAME_CHAR_LIMIT = 18
-USER_TAG_MAX_LIMIT = 5
+USER_TAG_MAX_LIMIT = 10
 
 #----User loggin related
 USER_NAME_MAX_LIMIT = 20
@@ -59,6 +59,7 @@ ADDED_TAG = 0
 USER_SIGNUP =0
 API_REQUEST = 0
 
+SEARCHED = [ ]
 
 tag_list = [ ] # tag_list for threads to featch news for
 
@@ -108,9 +109,9 @@ else:
 
 roots = [
     # No relevancy
-    #{'sources':'the-times-of-india','sortBy':'popularity','e_or_h':'h','pageSize':str(NEWS_PER_TAGNAME_TO_USER+1)}, #
-    {'sources':'the-times-of-india,the-hindu,the-verge,bbc-news,google-news-in','sortBy':'popularity','e_or_h':'e','pageSize':str(NEWS_PER_TAGNAME_TO_USER+1)},
-    {'sources':'', 'sortBy':'publishedAt','e_or_h':'e','pageSize':str(NEWS_PER_TAGNAME_TO_USER+1)},
+    #{'sources':'the-times-of-india','sortBy':'popularity','e_or_h':'h','pageSize':str(NEWS_PER_TAGNAME_TO_USER+1)}, # str(NEWS_PER_TAGNAME_TO_USER+1
+    {'sources':'the-times-of-india,the-hindu,the-verge,bbc-news,google-news-in','sortBy':'popularity','e_or_h':'e','pageSize':'100'},
+    {'sources':'', 'sortBy':'publishedAt','e_or_h':'e','pageSize':'100'},
 
     ]
 
@@ -250,7 +251,7 @@ def index_get():
         else:
             trending_tag = trending_tag[0].tag_name
 
-        return render_template('index_admin.html',com='overview',TRENDING_TAG=trending_tag,MAX_CLICKED=max_clicked,ONLINE_USERS=ONLINE_USERS,MAX_ONLINE=MAX_ONLINE,ADDED_TAG=ADDED_TAG,USER_SIGNUP=USER_SIGNUP,API_REQUEST=API_REQUEST)
+        return render_template('index_admin.html',com='overview',SEARCHED=SEARCHED,TRENDING_TAG=trending_tag,MAX_CLICKED=max_clicked,ONLINE_USERS=ONLINE_USERS,MAX_ONLINE=MAX_ONLINE,ADDED_TAG=ADDED_TAG,USER_SIGNUP=USER_SIGNUP,API_REQUEST=API_REQUEST)
 
     elif com == 'tag_table':
         tags = Tag.query.all()
@@ -311,6 +312,35 @@ def highlights_get(username):
                     total_count+=1
 
     return jsonify({'response' : response, 'count':str(total_count) })
+
+
+@app.route('/news/headlines', methods=['GET'])
+def headlines_get():
+
+    tags =  Tag.query.limit(10).all()
+    response = []
+    total_count = 0
+    if tags != []:
+        for tag in tags:
+            if tag.articles != []:
+                count=1
+                for article in tag.articles:
+                    if count > NEWS_PER_TAGNAME_TO_USER_HIGHLIGHTS:
+                        break
+                    else:
+                        count+=1
+                    res = {}
+                    res['id'] = article.id
+                    res['title'] = article.title
+                    res['body'] = article.body
+                    res['link'] = article.link
+                    res['added'] = article.date_added
+                    res['img_url'] = article.img_url
+                    response.append(res)
+                    total_count+=1
+
+    return jsonify({'response' : response, 'count':str(total_count) })
+
 
 
 
@@ -514,8 +544,11 @@ def tag_trending_get(top = 10):
 
 @app.route('/tag/tagname/<tagname>', methods=['GET'])
 def tag_get(tagname):
-
+    print('inside tag_get')
     count = Tag.query.filter_by(tag_name = tagname).count()
+    SEARCHED.append(tagname)
+    file = open('all_searched.txt', 'a')
+    file.write(tagname+'\n')
 
     return jsonify( {'status': count } )
 
@@ -525,6 +558,7 @@ def tag_get(tagname):
 def tag_username_get(username='rnmpatel'):
 
     output = []
+    count=0
     user = User.query.filter_by(username = username).all()
     if user != []:
         print("inside tag checking")
@@ -533,9 +567,10 @@ def tag_username_get(username='rnmpatel'):
             t = {}
             t['id'] = tag.id
             t['tag_name'] = tag.tag_name
+            count+=1
             output.append(t)
 
-    return jsonify( {'user_tag': output } )
+    return jsonify( {'user_tag': output, 'count':count} )
 
 
 @app.route('/tag/match', methods=['GET'])
@@ -551,11 +586,17 @@ def autocomplete():
 @app.route('/comment/delete/id/<id>', methods=['GET'])
 def delete_comment_get(id):
     com = Comment.query.filter_by(id = id).first()
-    usr = com.user
-    usr.comments.remove(com)
-    db.session.delete(com)
-    db.session.commit()
-    return "deleted"
+    if com.user_id == None:
+        db.session.delete(com)
+        db.session.commit()
+        return redirect(url_for('index_get',com='comment',msg='deleted without user'))
+
+    else:
+        usr = com.user
+        usr.comments.remove(com)
+        db.session.delete(com)
+        db.session.commit()
+        return redirect(url_for('index_get',com='comment'))
 
 
 
@@ -571,14 +612,17 @@ def comment_post():
     if len(title) > COMMENT_TITLE__MAX_LIMIT:
                return jsonify( {'status': 0, 'msg':'!! Maximum length of $ Title $ should be '+str(COMMENT_TITLE__MAX_LIMIT)+' character !!'})
 
-    if len(body) < COMMENT_BODY_MIN_LIMIT:
-               return jsonify( {'status': 0, 'msg':'!! Minimum length of $ Body $ should be '+str(COMMENT_BODY_MIN_LIMIT)+' character !!'})
     if len(body) > COMMENT_BODY__MAX_LIMIT:
                return jsonify( {'status': 0, 'msg':'!! Maximum length of $ Body $ should be '+str(COMMENT_BODY__MAX_LIMIT)+' character !!'})
 
+    if len(body) == 0:
+        body = ''
 
-    u=User.query.filter_by(username=username).first()
-    c=Comment(title=title,body=body,star=star,user=u)
+    if username == '':
+        c=Comment(title=title,body=body,star=star)
+    else:
+        u=User.query.filter_by(username=username).first()
+        c=Comment(title=title,body=body,star=star,user=u)
     db.session.add(c)
     db.session.commit()
 
@@ -683,9 +727,9 @@ def tag_signup_post():
     global USER_SIGNUP
 
     username = request.form['username'].strip()
-    name = request.form['name'].strip()
-    ans = request.form['ans'].strip()
-    que = request.form['que'].strip()
+    #name = request.form['name'].strip()
+    #ans = request.form['ans'].strip()
+    #que = request.form['que'].strip()
     password = request.form['password'].strip()
 
     c = User.query.filter_by(username=username).count()
@@ -702,10 +746,10 @@ def tag_signup_post():
                return jsonify( {'status': 0, 'msg':'!! Minimum length of $ Password $ should be '+str(USER_PASSWORD_MIN_LIMIT)+' character !!'})
     if len(password) > USER_PASSWORD_MAX_LIMIT:
                return jsonify( {'status': 0, 'msg':'!! Maximum length of $ Password $ should be '+str(USER_PASSWORD_MAX_LIMIT)+' character !!'})
-
+    """
     if len(name) < USER_NAME_MIN_LIMIT:
                return jsonify( {'status': 0, 'msg':'!! Minimum length of $ Name $ should be '+str(USER_NAME_MIN_LIMIT)+' character !!'})
-    if len(password) > USER_NAME_MAX_LIMIT:
+    if len(name) > USER_NAME_MAX_LIMIT:
                return jsonify( {'status': 0, 'msg':'!! Maximum length of $ Name $ should be '+str(USER_NAME_MAX_LIMIT)+' character !!'})
 
     if len(que) < USER_QUE_MIN_LIMIT:
@@ -718,8 +762,9 @@ def tag_signup_post():
     if len(password) > USER_ANS_MAX_LIMIT:
                return jsonify( {'status': 0, 'msg':'!! Maximum length of $ Answer $ should be '+str(USER_ANS_MAX_LIMIT)+' character !!'})
 
+    """
 
-    user = User(username = username, name=name, password=password, que=que, ans=ans)
+    user = User(username = username, name=' ', password=password, que=' ', ans=' ')
     db.session.add(user)
     db.session.commit()
     USER_SIGNUP += 1
@@ -839,33 +884,88 @@ def adder(tagname, response):
         t = Tag.query.filter_by(tag_name = tagname).first()
 
         if t != []:
-            count = 1
-            for article in response['articles']:
-                if count > NEWS_PER_TAGNAME_TO_USER:
-                    break
+            #######################
+            matcher= {}  # Total counter
+            no_words = len(tagname.split())
+            third_dic = {} # main counter
+            for news in response['articles']:
+                boolcheck=True
+                c=0
+                for word in tagname.split():
+                    a= news['title'].count(word)
+                    b= news['description'].count(word)
+                    c = a+b+c
+                    if c == 0:
+                        boolcheck=False
+
+                if boolcheck == True:
+                    # meaning all word is at least one time in news
+                    third_dic[news['title']] = c
                 else:
-                    count += 1
+                    matcher[news['title']] = c
 
-                title = article['title']
-                body = article['description']
-                link = article['url']
-                img_url = article['urlToImage']
 
-                yes = 0
-                articles = Article.query.filter(or_(Article.link == link,Article.title == title,Article.img_url == img_url)).all()
-                for article in articles:
-                    if article in t.articles:
-                        a = article
-                        yes = 1
+            """
+            print('\nPrinting third_dic\n')
+            #for k, v in d.items():
+            for k,v in third_dic.items():
+                print (k,' :: ',v)
+            print("\n")
+
+            for title in list(reversed(sorted(third_dic, key=third_dic.get))):
+                print(title)
+
+            print('\nPrinting Matcher\n')
+            #for k, v in d.items():
+            for k,v in matcher.items():
+                print (k,' :: ',v)
+            print("\n")
+
+
+            for title in list(reversed(sorted(matcher, key=matcher.get))):
+                print(title)
+
+            """
+
+            dict={ }
+            for article in response['articles']:
+                dict[article['title']]=article
+            dummy=[third_dic,matcher]
+            count = 1
+            for w in dummy:
+
+                for title in list(reversed(sorted(w, key=w.get))):
+                    article = dict[title]
+
+
+                    if count > NEWS_PER_TAGNAME_TO_USER:
                         break
-                if yes == 0:
-                    #,date_added=datetime.datetime.utcnow
-                    a = Article(title= title, body= body, link = link, img_url = img_url)
-                    db.session.add(a)
-                    t.articles.append(a)
-                    db.session.commit()
+                    else:
+                        count += 1
 
-                print('Tag Updated :',t.tag_name,'Article:',a.title)
+                    title = article['title']
+                    body = article['description']
+                    link = article['url']
+                    img_url = article['urlToImage']
+
+                    yes = 0
+
+                    articles = Article.query.filter(or_(Article.link == link,Article.title == title,Article.img_url == img_url)).all()
+                    for article in articles:
+                        if article in t.articles:
+                            a = article
+                            yes = 1
+                            break
+                    if yes == 0:
+                        #,date_added=datetime.datetime.utcnow
+                        a = Article(title= title, body= body, link = link, img_url = img_url)
+                        db.session.commit()
+                        db.session.add(a)
+                        db.session.commit()
+                        t.articles.append(a)
+                        db.session.commit()
+
+                    print('Tag Updated :',t.tag_name,'::::' ,'Article:',a.title)
 
         else:
             print("tag is not found")
