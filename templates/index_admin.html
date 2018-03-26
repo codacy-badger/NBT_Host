@@ -66,6 +66,17 @@
                 <li class="list-group-item">API_REQUEST :- {{API_REQUEST}}</li>
             </ul>
           </div>
+          <div class="panel-footer">
+              <ul class="list-group">
+                  {%for tagname in SEARCHED%}
+                     <li class="list-group-item">
+                          {{tagname}}
+                     </li>
+                  {% endfor %}
+
+                  </ul>
+
+          </div>
       </div>
 
 
