@@ -105,7 +105,7 @@ else:
 
     NEWS_PER_TAGNAME_TO_USER = 20
     NEWS_PER_TAGNAME_TO_USER_HIGHLIGHTS = 3
-    TAG_DAYS_LIMIT = 30
+    TAG_DAYS_LIMIT = 90
 #-------------------------------------------------------------
 #,the-hindu,the-verge,bbc-news
 #----News sources
