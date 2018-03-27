@@ -71,7 +71,7 @@ if os.environ.get('ENV') != 'production':
     domain = 'http://localhost:5000'
     fe_domain = 'http://localhost:5001'
 
-
+    RENEW_ALL_TAG=0
     RENEW_TIME = "22:59"
     apiKey = 'e72bb370d548488c9919ed7f61aa6346'
     NEWS_RENEW_TIME =  24*60*60
@@ -90,10 +90,12 @@ else:
     domain = 'https://p-host.herokuapp.com'
     fe_domain = 'https://newsbytag.herokuapp.com'
     # production
+
+    RENEW_ALL_TAG=0
     RENEW_TIME = "03:00"
     apiKey = '838b62c7059448b0ad8383231c8ac614'
     NEWS_RENEW_TIME = 24*60*60
-    WAIT_FOR_TAG_LIST = 0.5
+    WAIT_FOR_TAG_LIST = 0.1
     WAIT_BEFORE_EACH_API_REQUEST = 0.1
     WAIT_AFTER_429_ERRORCODE = 60
 
@@ -102,7 +104,7 @@ else:
 
     NEWS_PER_TAGNAME_TO_USER = 20
     NEWS_PER_TAGNAME_TO_USER_HIGHLIGHTS = 3
-    TAG_DAYS_LIMIT = 15
+    TAG_DAYS_LIMIT = 30
 #-------------------------------------------------------------
 #,the-hindu,the-verge,bbc-news
 #----News sources
@@ -1050,10 +1052,10 @@ print("starting threads")
 if MIGRATING == 0:
     Thread(target=parser).start()
     Thread(target=repeater).start()
-
-    tags = Tag.query.all()
-    for tag in tags:
-        tag.is_used=1
+    if RENEW_ALL_TAG == 1:
+        tags = Tag.query.all()
+        for tag in tags:
+            tag.is_used=1
     update_loop()
 
 schedule.every().day.at(RENEW_TIME).do(update_loop)
