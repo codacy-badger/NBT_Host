@@ -110,7 +110,7 @@ else:
 roots = [
     # No relevancy
     #{'sources':'the-times-of-india','sortBy':'popularity','e_or_h':'h','pageSize':str(NEWS_PER_TAGNAME_TO_USER+1)}, # str(NEWS_PER_TAGNAME_TO_USER+1
-    {'sources':'the-times-of-india,the-hindu,the-verge,bbc-news,google-news-in','sortBy':'popularity','e_or_h':'e','pageSize':'100'},
+    {'sources':'the-times-of-india,the-hindu,the-verge,bbc-sport,bbc-news,google-news-in','sortBy':'popularity','e_or_h':'e','pageSize':'100'},
     {'sources':'', 'sortBy':'publishedAt','e_or_h':'e','pageSize':'100'},
 
     ]
@@ -1050,6 +1050,10 @@ print("starting threads")
 if MIGRATING == 0:
     Thread(target=parser).start()
     Thread(target=repeater).start()
+
+    tags = Tag.query.all()
+    for tag in tags:
+        tag.is_used=1
     update_loop()
 
 schedule.every().day.at(RENEW_TIME).do(update_loop)
