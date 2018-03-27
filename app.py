@@ -1072,4 +1072,4 @@ schedule.every().day.at(RENEW_TIME).do(update_loop)
 
 if "__main__" == __name__:
         print(__name__)
-        app.run(use_reloader=False,debug=DEBUG,threaded=True)
+        app.run(use_reloader=False,debug=DEBUG,threaded=False)
