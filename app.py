@@ -894,8 +894,12 @@ def adder(tagname, response):
                 boolcheck=True
                 c=0
                 for word in tagname.split():
-                    a= news['title'].count(word)
-                    b= news['description'].count(word)
+                    a=0
+                    b=0
+                    if news['title'] != None:
+                        a= news['title'].count(word)
+                    if news['description'] != None:
+                        b= news['description'].count(word)
                     c = a+b+c
                     if c == 0:
                         boolcheck=False
