@@ -817,7 +817,7 @@ def parser():
                         db.session.delete(article)
 
 
-                tag.articles[:] = []
+                del tag.articles[:]
                 db.session.commit()
 
                 #----------------------------------------------------------------
