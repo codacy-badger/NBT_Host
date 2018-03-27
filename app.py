@@ -95,7 +95,7 @@ else:
 
     DEBUG = False
     RENEW_ALL_TAG=0
-    RENEW_TIME = "03:00"
+    RENEW_TIME = "07:00"
     apiKey = '28a06991842e479697658b6861101697'
     NEWS_RENEW_TIME = 24*60*60
     WAIT_FOR_TAG_LIST = 0.1
@@ -1051,7 +1051,9 @@ def update_loop():
 
 def repeater():
     while True:
+        print("befor pending schedule code")
         schedule.run_pending()
+        print("befor pending schedule code")
         time.sleep(60) # wait one minute
 
 
@@ -1072,4 +1074,4 @@ schedule.every().day.at(RENEW_TIME).do(update_loop)
 
 if "__main__" == __name__:
         print(__name__)
-        app.run(use_reloader=False,debug=DEBUG,threaded=False)
+        app.run(use_reloader=False,debug=False,threaded=False)
