@@ -63,3 +63,5 @@ Phost-venv/bin/
 phost-venv/
 
 Phost-venv/share/python-wheels/
+
+all_searched\.txt

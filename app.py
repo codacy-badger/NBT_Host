@@ -897,12 +897,12 @@ def adder(tagname, response):
                 for word in tagname.split():
                     a=0
                     b=0
-                    if news['title'] != None:
+                    if news['title'] != '':
                         a= news['title'].count(word)
-                    if news['description'] != None:
+                    if news['description'] != '':
                         b= news['description'].count(word)
                     c = a+b+c
-                    if c == 0:
+                    if (a+b) == 0:
                         boolcheck=False
 
                 if boolcheck == True:
@@ -911,8 +911,8 @@ def adder(tagname, response):
                 else:
                     matcher[news['title']] = c
 
-
             """
+
             print('\nPrinting third_dic\n')
             #for k, v in d.items():
             for k,v in third_dic.items():
@@ -933,6 +933,7 @@ def adder(tagname, response):
                 print(title)
 
             """
+
 
             dict={ }
             for article in response['articles']:
