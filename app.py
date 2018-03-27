@@ -897,9 +897,9 @@ def adder(tagname, response):
                 for word in tagname.split():
                     a=0
                     b=0
-                    if news['title'] != '':
+                    if news['title'] != None:
                         a= news['title'].count(word)
-                    if news['description'] != '':
+                    if news['description'] != None:
                         b= news['description'].count(word)
                     c = a+b+c
                     if (a+b) == 0:
