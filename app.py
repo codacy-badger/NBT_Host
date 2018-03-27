@@ -71,6 +71,7 @@ if os.environ.get('ENV') != 'production':
     domain = 'http://localhost:5000'
     fe_domain = 'http://localhost:5001'
 
+    DEBUG = False
     RENEW_ALL_TAG=0
     RENEW_TIME = "22:59"
     # apiKey = 'e72bb370d548488c9919ed7f61aa6346'
@@ -92,6 +93,7 @@ else:
     fe_domain = 'https://newsbytag.herokuapp.com'
     # production
 
+    DEBUG = True
     RENEW_ALL_TAG=0
     RENEW_TIME = "03:00"
     apiKey = '28a06991842e479697658b6861101697'
@@ -1070,4 +1072,4 @@ schedule.every().day.at(RENEW_TIME).do(update_loop)
 
 if "__main__" == __name__:
         print(__name__)
-        app.run(use_reloader=False,threaded=True)
+        app.run(use_reloader=False,debug=DEBUG,threaded=True)
