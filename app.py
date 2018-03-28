@@ -1,6 +1,7 @@
 from flask import Flask,abort,jsonify, redirect, request, render_template, session, url_for
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import or_,desc,func
+from sqlalchemy import *
+#or_,desc,func,in_
 from profanity import is_bad_word,add_bad_word,all_blocked_word
 import requests
 import os
@@ -62,7 +63,7 @@ API_REQUEST = 0
 SEARCHED = [ ]
 
 tag_list = [ ] # tag_list for threads to featch news for
-
+trending_tag_list=[]
 MIGRATING = 0
 
 if os.environ.get('ENV') != 'production':
@@ -71,13 +72,14 @@ if os.environ.get('ENV') != 'production':
     domain = 'http://localhost:5000'
     fe_domain = 'http://localhost:5001'
 
-    DEBUG = True
+    DEBUG = False
     RENEW_ALL_TAG=0
     RENEW_TIME = "22:59"
-    # apiKey = 'e72bb370d548488c9919ed7f61aa6346'
-    apiKey = '28a06991842e479697658b6861101697'
+    apiKey_rnm = 'e72bb370d548488c9919ed7f61aa6346'
+    apiKey_rajat = '28a06991842e479697658b6861101697'
+    apiKey = apiKey_rajat
     NEWS_RENEW_TIME =  24*60*60
-    WAIT_FOR_TAG_LIST = 1
+    WAIT_FOR_TAG_LIST = 0.1
     WAIT_BEFORE_EACH_API_REQUEST = 0.1
     WAIT_AFTER_429_ERRORCODE = 30
 
@@ -96,7 +98,8 @@ else:
     DEBUG = False
     RENEW_ALL_TAG=0
     RENEW_TIME = "07:00"
-    apiKey = '28a06991842e479697658b6861101697'
+    apiKey_rnm = 'e72bb370d548488c9919ed7f61aa6346'
+    apiKey_rajat = '28a06991842e479697658b6861101697'
     NEWS_RENEW_TIME = 24*60*60
     WAIT_FOR_TAG_LIST = 0.1
     WAIT_BEFORE_EACH_API_REQUEST = 0.1
@@ -128,10 +131,10 @@ app.config['JSON_SORT_KEYS'] = False
 
 if os.environ.get('ENV') == 'production':
     app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
-    app.config['DEBUG'] = False
+
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 else:
-    app.debug = True
+
     db_uri = URI
     app.config['SQLALCHEMY_DATABASE_URI'] = db_uri
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -256,6 +259,9 @@ def index_get():
         else:
             trending_tag = trending_tag[0].tag_name
 
+        file = open('all_searched.txt', 'r')
+        SEARCHED = list(file.read().split())
+
         return render_template('index_admin.html',com='overview',SEARCHED=SEARCHED,TRENDING_TAG=trending_tag,MAX_CLICKED=max_clicked,ONLINE_USERS=ONLINE_USERS,MAX_ONLINE=MAX_ONLINE,ADDED_TAG=ADDED_TAG,USER_SIGNUP=USER_SIGNUP,API_REQUEST=API_REQUEST)
 
     elif com == 'tag_table':
@@ -278,7 +284,7 @@ def index_get():
 
     elif com == 'tag':
         tags = Tag.query.all()
-        return render_template('index_admin.html',com='tag',tags=tags)
+        return render_template('index_admin.html',com='tag',ttl=trending_tag_list,tags=tags)
 
     elif com == 'user':
         users = User.query.all()
@@ -290,6 +296,44 @@ def index_get():
 
     else:
         return "nothing selected"
+
+
+
+@app.route('/admin/tag', methods=['GET'])
+def trending_list_get():
+
+    tagname = request.args.get('tagname')
+
+
+    if 'remove' in request.args:
+        trending_list_get.remove(tagname)
+        return redirect(url_for('index_get',com='tag'))
+
+    if 'up' in request.args:
+        if tagname not in trending_tag_list or (trending_tag_list.index(tagname) == 0):
+            return redirect(url_for('index_get',com='tag'))
+
+        i = trending_tag_list.index(tagname)
+        trending_tag_list[i-1], trending_tag_list[i] = trending_tag_list[i], trending_tag_list[i-1]
+        return redirect(url_for('index_get',com='tag'))
+    if 'down' in request.args :
+        if tagname not in trending_tag_list or (trending_tag_list.index(tagname) == len(trending_tag_list)-1):
+             return redirect(url_for('index_get',com='tag'))
+        i = trending_tag_list.index(tagname)
+        trending_tag_list[i+1], trending_tag_list[i] = trending_tag_list[i], trending_tag_list[i+1]
+        return redirect(url_for('index_get',com='tag'))
+
+    if tagname in trending_tag_list:
+            return redirect(url_for('index_get',com='tag'))
+
+    trending_tag_list[USER_TAG_MAX_LIMIT:]=[]
+    trending_tag_list.append(tagname)
+
+    return redirect(url_for('index_get',com='tag'))
+
+
+
+
 
 @app.route('/news/highlights/username/<username>', methods=['GET'])
 def highlights_get(username):
@@ -447,7 +491,7 @@ def tag_add_get(user_name, tag_name):
         tag = Tag(tag_name = tag_name,clicks=1,num_users=1,is_used=1, mod_date=1)
         db.session.add(tag)
         db.session.commit()
-        print("hi")
+
         #parser(tag.tag_name)
         #Thread(target=parser, args=([tag.tag_name]).start()
         tag_list.insert(0,tag.tag_name)
@@ -472,7 +516,7 @@ def tag_delete_username_get(username,tagname):
     user = User.query.filter_by(username = username).first()
     if tagname == '*':
         #db.session.query(Table_name).filter_by(id.in_()).delete()
-        print('I am here')
+
         for tag in user.tags:
             tag.num_users -= 1
         user.tags[:] = []
@@ -535,14 +579,20 @@ def tag_delete_get(tagname):
 
 @app.route('/tag/trending/<int:top>', methods=['GET'])
 def tag_trending_get(top = 10):
-    tags = Tag.query.order_by(Tag.num_users.desc()).limit(10).all()
+    if trending_list_get == []:
+        tags = Tag.query.order_by(Tag.num_users.desc()).limit(10).all()
+    else:
+        tags = Tag.query.filter(Tag.tag_name.in_(trending_tag_list)).limit(10).all()
 
     output = []
-    for tag in tags:
-        t = {}
-        t['id'] = tag.id
-        t['tag_name'] = tag.tag_name
-        output.append(t)
+    for t in trending_tag_list:
+        for tag in tags:
+            if t != tag.tag_name:
+                continue
+            t = {}
+            t['id'] = tag.id
+            t['tag_name'] = tag.tag_name
+            output.append(t)
 
     return jsonify( {'trending_tag': output } )
 
@@ -796,7 +846,7 @@ def tag_signin_post():
 ##########################################################################
 
 def parser():
-        global WAIT_AFTER_429_ERRORCODE,  WAIT_BEFORE_EACH_API_REQUEST,  WAIT_FOR_TAG_LIST, API_REQUEST
+        global WAIT_AFTER_429_ERRORCODE,  WAIT_BEFORE_EACH_API_REQUEST,  WAIT_FOR_TAG_LIST, API_REQUEST, apiKey
         global ADDER_429,  ADDER_EACH_API_REQUEST
         print("Inside parser")
         while True:
@@ -812,12 +862,14 @@ def parser():
                     print("\n\nreturn because tag is not used :\n",tag.tag_name)
                     continue
 
+                print("Length of articles in tag is :",tag.tag_name,len(tag.articles))
                 for article in tag.articles:
                         print("Deleted article : Tag Name :",tagname ,article.title)
                         db.session.delete(article)
 
+                db.session.commit()
 
-                del tag.articles[:]
+                tag.articles = []
                 db.session.commit()
 
                 #----------------------------------------------------------------
@@ -848,6 +900,15 @@ def parser():
                             if response.status_code != 429:
                                 break
                             print("Status code is 429 so sleeping")
+                            print("changing api key")
+
+                            if apiKey==apiKey_rajat:
+                                apiKey=apiKey_rnm
+                            elif apiKey==apiKey_rnm:
+                                apiKey=apiKey_rajat
+                            else:
+                                pass
+
                             if no_429 == 0:
                                 WAIT_BEFORE_EACH_API_REQUEST += ADDER_EACH_API_REQUEST # 0.25
                                 print('\n\n\nmodified each request wait ,current is :', WAIT_BEFORE_EACH_API_REQUEST)
@@ -872,9 +933,10 @@ def parser():
                 db.session.commit()
                 print("tag click and is_usr reset")
             except Exception as e:
-                tag.is_used = 0
+                tag.is_used = 1
                 tag.clicks = 0
                 db.session.commit()
+                print(":::::: Printing logs ::::::")
                 print("error basic :",e.__doc__)
                 print("try catch pass in parser")
                 logging.error(traceback.format_exc())
@@ -896,15 +958,17 @@ def adder(tagname, response):
             for news in response['articles']:
                 boolcheck=True
                 c=0
-                for word in tagname.split():
+                words = tagname.split()
+                for word in words:
                     a=0
-                    b=0
+                    word = word.lower()
                     if news['title'] != None:
-                        a= news['title'].count(word)
+                        a += ((news['title']).lower()).count(word)
                     if news['description'] != None:
-                        b= news['description'].count(word)
-                    c = a+b+c
-                    if (a+b) == 0:
+                        a += ((news['description']).lower()).count(word)
+
+                    c += a
+                    if a == 0:
                         boolcheck=False
 
                 if boolcheck == True:
@@ -913,15 +977,15 @@ def adder(tagname, response):
                 else:
                     matcher[news['title']] = c
 
-            """
 
+            """
             print('\nPrinting third_dic\n')
             #for k, v in d.items():
             for k,v in third_dic.items():
                 print (k,' :: ',v)
             print("\n")
 
-            for title in list(reversed(sorted(third_dic, key=third_dic.get))):
+            for title in list(sorted(third_dic, key=third_dic.get,reverse=True)):
                 print(title)
 
             print('\nPrinting Matcher\n')
@@ -929,22 +993,24 @@ def adder(tagname, response):
             for k,v in matcher.items():
                 print (k,' :: ',v)
             print("\n")
+            """
 
-
-            for title in list(reversed(sorted(matcher, key=matcher.get))):
+            for title in list(sorted(matcher, key=matcher.get,reverse=True)):
                 print(title)
 
-            """
+
 
 
             dict={ }
             for article in response['articles']:
                 dict[article['title']]=article
+
             dummy=[third_dic,matcher]
             count = 1
+
             for w in dummy:
 
-                for title in list(reversed(sorted(w, key=w.get))):
+                for title in list(sorted(w, key=w.get,reverse=True)):
                     article = dict[title]
 
 
@@ -1007,8 +1073,6 @@ def update_loop():
             for article in tag.articles:
                 db.session.delete(article)
 
-            db.session.delete(tag)
-
         else:
             tag.mod_date = tag.mod_date + 1
     db.session.commit()
@@ -1048,30 +1112,37 @@ def update_loop():
     return
 
 
-
 def repeater():
     while True:
-        print("befor pending schedule code")
-        schedule.run_pending()
-        print("befor pending schedule code")
-        time.sleep(60) # wait one minute
-
+        try:
+            schedule.run_pending()
+            time.sleep(60*5) # wait one minute
+        except Exception as e:
+             print("error basic :",e.__doc__)
+             print("try catch pass in parser")
+             logging.error(traceback.format_exc())
+             pass
 
 
 print("starting threads")
-if MIGRATING == 0:
-    Thread(target=parser).start()
-    Thread(target=repeater).start()
-    if RENEW_ALL_TAG == 1:
-        tags = Tag.query.all()
-        for tag in tags:
-            tag.is_used=1
-    update_loop()
-
-schedule.every().day.at(RENEW_TIME).do(update_loop)
+if MIGRATING == 0 and os.environ.get("WERKZEUG_RUN_MAIN") != "true":
+    try:
+        Thread(target=parser).start()
+        Thread(target=repeater).start()
+        if RENEW_ALL_TAG == 1:
+            tags = Tag.query.all()
+            for tag in tags:
+                tag.is_used=1
+        update_loop()
+    except Exception as e:
+         print("error basic :",e.__doc__)
+         print("try catch pass in parser")
+         logging.error(traceback.format_exc())
+         pass
+#schedule.every().day.at(RENEW_TIME).do(update_loop)
 
 
 
 if "__main__" == __name__:
         print(__name__)
-        app.run(use_reloader=False,debug=False,threaded=False)
+        app.run(use_reloader=False,debug=DEBUG)
