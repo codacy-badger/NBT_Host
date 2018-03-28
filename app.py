@@ -72,7 +72,7 @@ if os.environ.get('ENV') != 'production':
     domain = 'http://localhost:5000'
     fe_domain = 'http://localhost:5001'
 
-    DEBUG = False
+    DEBUG = True
     RENEW_ALL_TAG=0
     RENEW_TIME = "18:35"
     apiKey_rnm = 'e72bb370d548488c9919ed7f61aa6346'
@@ -97,7 +97,7 @@ else:
 
     DEBUG = False
     RENEW_ALL_TAG=0
-    RENEW_TIME = "07:00"
+    RENEW_TIME = "03:00"
     apiKey_rnm = 'e72bb370d548488c9919ed7f61aa6346'
     apiKey_rajat = '28a06991842e479697658b6861101697'
     apiKey = apiKey_rajat
@@ -306,8 +306,14 @@ def trending_list_get():
     tagname = request.args.get('tagname')
 
 
+    if 'removeall' in request.args:
+        trending_tag_list[:]=[]
+        return redirect(url_for('index_get',com='tag'))
+
+
     if 'remove' in request.args:
-        trending_list_get.remove(tagname)
+        trending_tag_list.remove(tagname)
+
         return redirect(url_for('index_get',com='tag'))
 
     if 'up' in request.args:
@@ -367,7 +373,15 @@ def highlights_get(username):
 @app.route('/news/headlines', methods=['GET'])
 def headlines_get():
 
-    tags =  Tag.query.limit(10).all()
+    #tags =  Tag.query.limit(10).all()
+    if trending_tag_list == []:
+        #print("inside db")
+        tags = Tag.query.order_by(Tag.num_users.desc()).limit(10).all()
+
+    else:
+        #print("inside list")
+        tags = Tag.query.filter(Tag.tag_name.in_(trending_tag_list)).limit(10).all()
+
     response = []
     total_count = 0
     if tags != []:
@@ -440,7 +454,7 @@ def tag_name_get(tag_name):
 @app.route('/tag/add/<user_name>/<tag_name>', methods=['GET'])
 def tag_add_get(user_name, tag_name):
     global ADDED_TAG
-
+    print("Inside tag/add")
     tag_name = tag_name.strip().title()
     if len(tag_name) > TAG_NAME_CHAR_LIMIT:
         print("returning error msg")
@@ -580,27 +594,30 @@ def tag_delete_get(tagname):
 
 @app.route('/tag/trending/<int:top>', methods=['GET'])
 def tag_trending_get(top = 10):
-    if trending_list_get == []:
+    #print("print trending tag list :",trending_tag_list)
+    if trending_tag_list == []:
+        print("inside db")
         tags = Tag.query.order_by(Tag.num_users.desc()).limit(10).all()
-
-        output = []
-        for t in trending_tag_list:
-            for tag in tags:
-                if t != tag.tag_name:
-                    continue
-                t = {}
-                t['id'] = tag.id
-                t['tag_name'] = tag.tag_name
-                output.append(t)
-    else:
-        tags = Tag.query.filter(Tag.tag_name.in_(trending_tag_list)).limit(10).all()
-
         output = []
         for tag in tags:
-            t = {}
-            t['id'] = tag.id
-            t['tag_name'] = tag.tag_name
-            output.append(t)
+              t = {}
+              t['id'] = tag.id
+              t['tag_name'] = tag.tag_name
+              output.append(t)
+
+
+    else:
+        print("inside list")
+        tags = Tag.query.filter(Tag.tag_name.in_(trending_tag_list)).limit(10).all()
+        output = []
+        for temp in trending_tag_list:
+          for tag in tags:
+              if temp != tag.tag_name:
+                  continue
+              t = {}
+              t['id'] = tag.id
+              t['tag_name'] = tag.tag_name
+              output.append(t)
 
     return jsonify( {'trending_tag': output } )
 
@@ -904,7 +921,7 @@ def parser():
 
                     while True:
                             time.sleep(WAIT_BEFORE_EACH_API_REQUEST)
-                            response = requests.get(url, params=payload,timeout=10)
+                            response = requests.get(url, params=payload,timeout=5)
                             API_REQUEST +=1
                             print (response.url)
                             if response.status_code != 429:
@@ -990,28 +1007,28 @@ def adder(tagname, response):
                 else:
                     matcher[news['title']] = c
 
+            deb = 0
+            if deb == 1:
+                print('\nPrinting third_dic\n')
+                #for k, v in d.items():
+                for k,v in third_dic.items():
+                    print (k,' :: ',v)
+                print("\n")
 
-            """
-            print('\nPrinting third_dic\n')
-            #for k, v in d.items():
-            for k,v in third_dic.items():
-                print (k,' :: ',v)
-            print("\n")
+                for title in list(sorted(third_dic, key=third_dic.get,reverse=True)):
+                    print(title)
 
-            for title in list(sorted(third_dic, key=third_dic.get,reverse=True)):
-                print(title)
-
-            print('\nPrinting Matcher\n')
-            #for k, v in d.items():
-            for k,v in matcher.items():
-                print (k,' :: ',v)
-            print("\n")
+                print('\nPrinting Matcher\n')
+                #for k, v in d.items():
+                for k,v in matcher.items():
+                    print (k,' :: ',v)
+                print("\n")
 
 
-            for title in list(sorted(matcher, key=matcher.get,reverse=True)):
-                print(title)
+                for title in list(sorted(matcher, key=matcher.get,reverse=True)):
+                    print(title)
 
-            """
+
 
 
             dict={ }
@@ -1019,7 +1036,7 @@ def adder(tagname, response):
                 dict[article['title']]=article
 
             dummy=[third_dic,matcher]
-            count = 1
+
 
             for w in dummy:
 
@@ -1027,10 +1044,9 @@ def adder(tagname, response):
                     article = dict[title]
 
 
-                    if count > NEWS_PER_TAGNAME_TO_USER:
+                    if len(t.articles) >= NEWS_PER_TAGNAME_TO_USER:
                         break
-                    else:
-                        count += 1
+
 
                     title = article['title']
                     body = article['description']

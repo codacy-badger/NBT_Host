@@ -181,6 +181,12 @@
                                     <th>Trending Tags</th>
                                     <th>Up</th>
                                     <th>Down</th>
+
+                                    <th>Remove all from trending<br />
+                                      <a class="btn btn-default btn-sm" href="/admin/tag?tagname={{tagname}}&removeall=1">
+                                        <span class="glyphicon glyphicon-trash" aria-hidden="true"></span>
+                                      </a>
+                                    </th>
                               </thead>
                               <tbody>
                                 {% for tagname in ttl %}
@@ -197,6 +203,12 @@
                                   <th>
                                     <a class="btn btn-default btn-sm" href="/admin/tag?tagname={{tagname}}&down=1">
                                       <span class="glyphicon glyphicon-arrow-down" aria-hidden="true"></span>
+                                    </a>
+
+                                  </th>
+                                  <th>
+                                    <a class="btn btn-default btn-sm" href="/admin/tag?tagname={{tagname}}&remove=1">
+                                      <span class="glyphicon glyphicon-trash" aria-hidden="true"></span>
                                     </a>
 
                                   </th>
