@@ -74,7 +74,7 @@ if os.environ.get('ENV') != 'production':
 
     DEBUG = False
     RENEW_ALL_TAG=0
-    RENEW_TIME = "22:59"
+    RENEW_TIME = "18:35"
     apiKey_rnm = 'e72bb370d548488c9919ed7f61aa6346'
     apiKey_rajat = '28a06991842e479697658b6861101697'
     apiKey = apiKey_rajat
@@ -1121,8 +1121,11 @@ def update_loop():
 def repeater():
     while True:
         try:
+
+            time.sleep(60*5) #wait five minute
+
+            #print("Going to run schedule")
             schedule.run_pending()
-            time.sleep(60*5) # wait one minute
         except Exception as e:
              print("error basic :",e.__doc__)
              print("try catch pass in parser")
