@@ -88,7 +88,7 @@ if os.environ.get('ENV') != 'production':
 
     NEWS_PER_TAGNAME_TO_USER = 20
     NEWS_PER_TAGNAME_TO_USER_HIGHLIGHTS = 3
-    TAG_DAYS_LIMIT = 15
+    TAG_DAYS_LIMIT = 90
 
 else:
     domain = 'https://p-host.herokuapp.com'
@@ -104,7 +104,7 @@ else:
     NEWS_RENEW_TIME = 24*60*60
     WAIT_FOR_TAG_LIST = 0.1
     WAIT_BEFORE_EACH_API_REQUEST = 0.1
-    WAIT_AFTER_429_ERRORCODE = 60
+    WAIT_AFTER_429_ERRORCODE = 30
 
     ADDER_EACH_API_REQUEST = 0.10
     ADDER_429 = 10
@@ -582,14 +582,21 @@ def tag_delete_get(tagname):
 def tag_trending_get(top = 10):
     if trending_list_get == []:
         tags = Tag.query.order_by(Tag.num_users.desc()).limit(10).all()
+
+        output = []
+        for t in trending_tag_list:
+            for tag in tags:
+                if t != tag.tag_name:
+                    continue
+                t = {}
+                t['id'] = tag.id
+                t['tag_name'] = tag.tag_name
+                output.append(t)
     else:
         tags = Tag.query.filter(Tag.tag_name.in_(trending_tag_list)).limit(10).all()
 
-    output = []
-    for t in trending_tag_list:
+        output = []
         for tag in tags:
-            if t != tag.tag_name:
-                continue
             t = {}
             t['id'] = tag.id
             t['tag_name'] = tag.tag_name
