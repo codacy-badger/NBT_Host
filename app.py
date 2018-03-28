@@ -96,7 +96,7 @@ else:
     # production
 
     DEBUG = False
-    RENEW_ALL_TAG=0
+    RENEW_ALL_TAG=1
     RENEW_TIME = "03:00"
     apiKey_rnm = 'e72bb370d548488c9919ed7f61aa6346'
     apiKey_rajat = '28a06991842e479697658b6861101697'
