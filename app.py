@@ -891,8 +891,10 @@ def parser():
                         payload = {'q':tag.tag_name, 'pageSize':root['pageSize'], 'sources':root['sources'], 'language':'en', 'sortBy':root['sortBy'], 'apiKey':apiKey}
 
                     no_429 = 0
-                    while True:
 
+
+
+                    while True:
                             time.sleep(WAIT_BEFORE_EACH_API_REQUEST)
                             response = requests.get(url, params=payload,timeout=10)
                             API_REQUEST +=1
@@ -917,6 +919,8 @@ def parser():
                                 print("\n\n\n Added 429 waiting limit ,current is :",WAIT_AFTER_429_ERRORCODE)
                             time.sleep(WAIT_AFTER_429_ERRORCODE)
 
+
+
                     if response.status_code != 200:
                         print("response.status_code",response.status_code)
                         temp = json.loads(response.text)
@@ -935,12 +939,13 @@ def parser():
             except Exception as e:
                 tag.is_used = 1
                 tag.clicks = 0
+                tag_list.insert(0,tag.tag_name)
                 db.session.commit()
                 print(":::::: Printing logs ::::::")
                 print("error basic :",e.__doc__)
                 print("try catch pass in parser")
                 logging.error(traceback.format_exc())
-                pass
+                continue
         return
                 #----------------------------------------------------------------
 
@@ -993,12 +998,12 @@ def adder(tagname, response):
             for k,v in matcher.items():
                 print (k,' :: ',v)
             print("\n")
-            """
+
 
             for title in list(sorted(matcher, key=matcher.get,reverse=True)):
                 print(title)
 
-
+            """
 
 
             dict={ }
