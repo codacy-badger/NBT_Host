@@ -928,6 +928,7 @@ def parser():
                                 break
                             print("Status code is 429 so sleeping")
                             print("changing api key")
+                            no_429 += 1
 
                             if apiKey==apiKey_rajat:
                                 apiKey=apiKey_rnm
@@ -1161,10 +1162,16 @@ if MIGRATING == 0 and os.environ.get("WERKZEUG_RUN_MAIN") != "true":
     try:
         Thread(target=parser).start()
         Thread(target=repeater).start()
-        if RENEW_ALL_TAG == 1:
+        if RENEW_ALL_TAG == 0:
             tags = Tag.query.all()
+            skip = 1
             for tag in tags:
-                tag.is_used=1
+                if (tag.tag_name).lower() == 'Tom And Jerry'.lower()
+                   skip = 0
+                if skip == 1:
+                   continue
+                else:
+                   tag.is_used=1
         update_loop()
     except Exception as e:
          print("error basic :",e.__doc__)
