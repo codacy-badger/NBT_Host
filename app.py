@@ -100,6 +100,7 @@ else:
     RENEW_TIME = "07:00"
     apiKey_rnm = 'e72bb370d548488c9919ed7f61aa6346'
     apiKey_rajat = '28a06991842e479697658b6861101697'
+    apiKey = apiKey_rajat
     NEWS_RENEW_TIME = 24*60*60
     WAIT_FOR_TAG_LIST = 0.1
     WAIT_BEFORE_EACH_API_REQUEST = 0.1
