@@ -1166,7 +1166,7 @@ if MIGRATING == 0 and os.environ.get("WERKZEUG_RUN_MAIN") != "true":
             tags = Tag.query.all()
             skip = 1
             for tag in tags:
-                if (tag.tag_name).lower() == 'Tom And Jerry'.lower()
+                if (tag.tag_name).lower() == 'Tom And Jerry'.lower():
                    skip = 0
                 if skip == 1:
                    continue
