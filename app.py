@@ -333,7 +333,7 @@ def trending_list_get():
     if tagname in trending_tag_list:
             return redirect(url_for('index_get',com='tag'))
 
-    trending_tag_list[USER_TAG_MAX_LIMIT:]=[]
+    trending_tag_list[USER_TAG_MAX_LIMIT-1:]=[]
     trending_tag_list.append(tagname)
 
     return redirect(url_for('index_get',com='tag'))
