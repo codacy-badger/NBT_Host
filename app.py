@@ -1159,7 +1159,7 @@ def repeater():
 
 
 print("starting threads")
-if MIGRATING == 0 and os.environ.get("WERKZEUG_RUN_MAIN") == "true":
+if MIGRATING == 0 and os.environ.get("WERKZEUG_RUN_MAIN") != "true":
     try:
         Thread(target=parser).start()
         Thread(target=repeater).start()
