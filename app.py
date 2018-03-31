@@ -476,7 +476,7 @@ def tag_add_get(user_name, tag_name):
             res["tag_name"] = tag.tag_name
             res["id"]= tag.id
             res['username']=u.username
-            return jsonify( {'added_tag': res,'status':1 } )
+            return jsonify( {'added_tag': res,'status':1 , 'count':int(len(u.tags)), 'max_limit': USER_TAG_MAX_LIMIT } )
         else:
             tag.num_users += 1
             tag.users.append(u)
@@ -487,7 +487,7 @@ def tag_add_get(user_name, tag_name):
             res["tag_name"] = tag.tag_name
             res["id"]= tag.id
             res['username']=u.username
-            return jsonify( {'added_tag': res,'status':1 } )
+            return jsonify( {'added_tag': res,'status':1, 'count':int(len(u.tags)), 'max_limit': USER_TAG_MAX_LIMIT } )
 
     else:
         for word in tag_name.split():
@@ -522,7 +522,7 @@ def tag_add_get(user_name, tag_name):
         res["id"]= tag.id
         res['username']=u.username
         print("Tag is added",tag.tag_name)
-        return jsonify( {'added_tag': res,'status':1 } )
+        return jsonify( {'added_tag': res,'status':1 , 'count':int(len(u.tags)), 'max_limit': USER_TAG_MAX_LIMIT } )
 
     return jsonify({'status':0,'msg':'!! Not Added !!'})
 
@@ -619,7 +619,7 @@ def tag_trending_get(top = 10):
               t['tag_name'] = tag.tag_name
               output.append(t)
 
-    print("output is : ",output)
+   #print("output is : ",output)
     return jsonify( {'trending_tag': output } )
 
 
@@ -651,7 +651,7 @@ def tag_username_get(username='rnmpatel'):
             count+=1
             output.append(t)
 
-    return jsonify( {'user_tag': output, 'count':count} )
+    return jsonify( {'user_tag': output} )
 
 
 @app.route('/tag/match', methods=['GET'])
