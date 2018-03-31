@@ -21,7 +21,7 @@ from threading import Thread
 username='user1'
 password='0233'
 host='localhost'
-db='p5'
+db='p8'
 
 URI = 'postgresql://'+username+':'+password+'@'+host+'/'+db
 
@@ -83,8 +83,8 @@ if os.environ.get('ENV') != 'production':
     WAIT_BEFORE_EACH_API_REQUEST = 0.1
     WAIT_AFTER_429_ERRORCODE = 300
 
-    ADDER_EACH_API_REQUEST = 0.10
-    ADDER_429 = 20
+    ADDER_EACH_API_REQUEST = 2
+    ADDER_429 = 2
 
     NEWS_PER_TAGNAME_TO_USER = 20
     NEWS_PER_TAGNAME_TO_USER_HIGHLIGHTS = 3
@@ -106,8 +106,8 @@ else:
     WAIT_BEFORE_EACH_API_REQUEST = 0.1
     WAIT_AFTER_429_ERRORCODE = 300
 
-    ADDER_EACH_API_REQUEST = 0.10
-    ADDER_429 = 20
+    ADDER_EACH_API_REQUEST = 2
+    ADDER_429 = 2
 
     NEWS_PER_TAGNAME_TO_USER = 20
     NEWS_PER_TAGNAME_TO_USER_HIGHLIGHTS = 3
@@ -619,6 +619,7 @@ def tag_trending_get(top = 10):
               t['tag_name'] = tag.tag_name
               output.append(t)
 
+    print("output is : ",output)
     return jsonify( {'trending_tag': output } )
 
 
@@ -714,28 +715,28 @@ def comment_post():
 def delete_username_get(username):
     user = User.query.filter_by(username = username).first()
 
-    res = requests.get(fe_domain+'/signout');
+    #res = requests.get(fe_domain+'/signout');
+    if user:
+        for tag in user.tags:
 
-    for tag in user.tags:
+                if 'flag' in request.args:
+                    add_bad_word(tag.tag_name)
 
-            if 'flag' in request.args:
-                add_bad_word(tag.tag_name)
+                for user in tag.users:
+                    user.tags.remove(tag)
 
-            for user in tag.users:
-                user.tags.remove(tag)
+                for article in tag.articles:
+                    db.session.delete(article)
+                db.session.commit()
 
-            for article in tag.articles:
-                db.session.delete(article)
-            db.session.commit()
-
-            db.session.delete(tag)
-            db.session.commit()
+                db.session.delete(tag)
+                db.session.commit()
 
 
-    db.session.delete(user)
-    db.session.commit()
+        db.session.delete(user)
+        db.session.commit()
 
-    return redirect(url_for('index_get'),com='user')
+    return redirect(url_for('index_get',com='user'))
 
 @app.route('/user/username/<username>', methods=['GET'])
 def user_details_get(username):
@@ -938,10 +939,10 @@ def parser():
                                 pass
 
                             if no_429 == 0:
-                                WAIT_BEFORE_EACH_API_REQUEST += ADDER_EACH_API_REQUEST # 0.25
+                                WAIT_BEFORE_EACH_API_REQUEST += (WAIT_BEFORE_EACH_API_REQUEST/ADDER_EACH_API_REQUEST) # 0.25
                                 print('\n\n\nmodified each request wait ,current is :', WAIT_BEFORE_EACH_API_REQUEST)
                             if no_429 > 1:
-                                WAIT_AFTER_429_ERRORCODE += ADDER_429  # 10
+                                WAIT_AFTER_429_ERRORCODE += (WAIT_AFTER_429_ERRORCODE/ADDER_429)  # 10
                                 print("\n\n\n Added 429 waiting limit ,current is :",WAIT_AFTER_429_ERRORCODE)
                             time.sleep(WAIT_AFTER_429_ERRORCODE)
 
