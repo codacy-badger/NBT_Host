@@ -77,7 +77,8 @@ if os.environ.get('ENV') != 'production':
     RENEW_TIME = "18:35"
     apiKey_rnm = 'e72bb370d548488c9919ed7f61aa6346'
     apiKey_rajat = '28a06991842e479697658b6861101697'
-    apiKey = apiKey_rajat
+    apiKey_place = '2e12846b9b5749e1a084bdf24be0089c'
+    apiKey = apiKey_place
     NEWS_RENEW_TIME =  24*60*60
     WAIT_FOR_TAG_LIST = 0.1
     WAIT_BEFORE_EACH_API_REQUEST = 0.1
@@ -216,7 +217,6 @@ class User(db.Model):
 @app.before_first_request
 def initialize():
     print ("Called only once, when the first request comes in")
-
 
 @app.route('/record', methods=['GET'])
 def record_user():
