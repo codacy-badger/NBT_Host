@@ -96,7 +96,7 @@ else:
     fe_domain = 'https://newsbytag.herokuapp.com'
     # production
 
-    DEBUG = True
+    DEBUG = False
     RENEW_ALL_TAG=0
     RENEW_TIME = "03:00"
     apiKey_rnm = 'e72bb370d548488c9919ed7f61aa6346'
@@ -1143,6 +1143,7 @@ def update_loop():
 
     return
 
+schedule.every().day.at(RENEW_TIME).do(update_loop)
 
 def repeater():
     while True:
@@ -1150,7 +1151,7 @@ def repeater():
 
             time.sleep(60*5) #wait five minute
 
-            #print("Going to run schedule")
+            print("Going to run schedule")
             schedule.run_pending()
         except Exception as e:
              print("error basic :",e.__doc__)
@@ -1164,6 +1165,7 @@ if MIGRATING == 0 and os.environ.get("WERKZEUG_RUN_MAIN") != "true":
     try:
         Thread(target=parser).start()
         Thread(target=repeater).start()
+        """
         if RENEW_ALL_TAG == 0:
             tags = Tag.query.all()
             skip = 1
@@ -1174,16 +1176,16 @@ if MIGRATING == 0 and os.environ.get("WERKZEUG_RUN_MAIN") != "true":
                    continue
                 else:
                    tag.is_used=1
-        update_loop()
+        """
+        #update_loop()
     except Exception as e:
          print("error basic :",e.__doc__)
          print("try catch pass in parser")
          logging.error(traceback.format_exc())
          pass
-#schedule.every().day.at(RENEW_TIME).do(update_loop)
 
 
 
 if "__main__" == __name__:
         print(__name__)
-        app.run(use_reloader=True,debug=DEBUG)
+        app.run(use_reloader=False,debug=DEBUG)
