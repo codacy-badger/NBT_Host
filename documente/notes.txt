@@ -21,6 +21,9 @@ api key for timesindia : 838b62c7059448b0ad8383231c8ac614
 
 https://newsapi.org/v2/everything?q=Science&%27sortBy=popularity&apiKey=838b62c7059448b0ad8383231c8ac614
 
+
+
+https://newsapi.org/v2/everything?q=Bagghi+2&pageSize=100&sources=the-times-of-india%2Cthe-hindu%2Cthe-verge%2Cbbc-sport%2Cbbc-news%2Cgoogle-news-in&language=en&sortBy=popularity&apiKey=2e12846b9b5749e1a084bdf24be0089c
 -------------------------------------------------
 
 HEROKU : rajatmovaliya512@gmail.com

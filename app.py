@@ -96,7 +96,7 @@ else:
     fe_domain = 'https://newsbytag.herokuapp.com'
     # production
 
-    DEBUG = False
+    DEBUG = True
     RENEW_ALL_TAG=0
     RENEW_TIME = "03:00"
     apiKey_rnm = 'e72bb370d548488c9919ed7f61aa6346'
@@ -1186,4 +1186,4 @@ if MIGRATING == 0 and os.environ.get("WERKZEUG_RUN_MAIN") != "true":
 
 if "__main__" == __name__:
         print(__name__)
-        app.run(use_reloader=False,debug=DEBUG)
+        app.run(use_reloader=True,debug=DEBUG)
