@@ -1095,18 +1095,22 @@ def update_loop():
     print("Inside update_loop")
 
     tags = Tag.query.all()
-    for tag in tags:
-        if tag.mod_date > TAG_DAYS_LIMIT:
 
-            print("\n\nTag is deleted because of no use :",tag.tag_name)
-            for user in tag.users:
-                user.tags.remove(tag)
+    no_tag = Tag.query.count()
+    if no_tag > 30:
+        for tag in tags:
+            if tag.mod_date > TAG_DAYS_LIMIT:
 
-            for article in tag.articles:
-                db.session.delete(article)
+                print("\n\nTag is deleted because of no use :",tag.tag_name)
+                for user in tag.users:
+                    user.tags.remove(tag)
 
-        else:
-            tag.mod_date = tag.mod_date + 1
+                for article in tag.articles:
+                    db.session.delete(article)
+
+            else:
+                tag.mod_date = tag.mod_date + 1
+
     db.session.commit()
 
 
