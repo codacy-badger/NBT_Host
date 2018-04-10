@@ -1,5 +1,5 @@
 
-file = open('prof_list.txt', 'r')
+file = open('profanity/prof_list.txt', 'r')
 words = list(file.read().split())
 
 def is_bad_word(word):
@@ -25,10 +25,10 @@ def is_bad_word(word):
    return False
 
 def add_bad_word(word):
-    file = open('blocked_prof_list.txt','a')
+    file = open('profanity/blocked_prof_list.txt','a')
     file.write(str(word)+'\n')
     words.extend(word.split())
-    file = open('prof_list.txt', 'a')
+    file = open('profanity/prof_list.txt', 'a')
     file.write(str(word)+'\n')
 
 def all_blocked_word():

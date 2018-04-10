@@ -2,7 +2,7 @@ from flask import Flask,abort,jsonify, redirect, request, render_template, sessi
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import *
 #or_,desc,func,in_
-from profanity import is_bad_word,add_bad_word,all_blocked_word
+from profanity.profanity import *
 import requests
 import os
 import json
