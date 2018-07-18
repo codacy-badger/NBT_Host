@@ -1,0 +1,32 @@
+---------------- Page2 and 3 are messed up with format. i.e. DDU text shows twice.
+
+
+----------------- Instead of year write period ... during the period Dec-2017 to Apr-2018
+---------------- Perform spell check all over.. Implementation correct
+--------------Abstract: Learn to break down a large statement into smaller. Do the needful. Foreigners can not recollect the long context.
+		i.e. one statement of 6 lines. Never.
+------------------- When the user visits next time...
+
+--------------List of tables/figures need to be added.
+------------ Introduction need to be talking about the project purpose.
+------------- Move technical stuff to a separate chapter may be "About the System"
+-------------- SRS need to be standard template. Utilise SRS Ids which shall also be mentioned next to test case in later chapter and all must be pass.
+
+--------------- Description with all images. And courtesy or source with downloaded ones.
+-------------------------- Implementation, mention versions of each technology tools. 
+------------- Write what all modules you have.
+------------ Talk about CSS/static content/Bootstrap, how is it loaded.
+------------- Conclusion chapter shall first have the achievement of the project. Later any other stories.
+- -------------Order of Deployment steps in Software Version Description Document chapter prior miscellaneous.
+---------------------- Each screenshots must have first the description about the process describing the snap.
+-----------------------How to deploy your software steps missing. prepare "Software Version Deployment Document" chapter before miscellaneous. Starting installing tools, creating 					collections, configurations, starting servers, etc.
+
+------------------ Create about page to show the current version of the system. Release date. and Team members information (name, email).
+------------------As you are only individually developing, everywhere it shall read "I" and not "We". i.e. conclusion.
+
+-
+
+
+
+ 
+
